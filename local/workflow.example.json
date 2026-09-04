@@ -1,0 +1,6 @@
+{
+  "_comment": "ComfyUI API-format workflow template for the local backend. Export your H3 workflow with 'Save (API Format)' and replace the literal values with the placeholders below. castconjure substitutes: {{PROMPT}} {{DURATION}} {{FRAMES}} {{RESOLUTION}} {{SEED}} {{REFERENCE_IMAGE}}. The node IDs/class_types here are illustrative; use whatever your H3 ComfyUI nodes are called. The output node must produce an mp4/webm (e.g. VHS_VideoCombine) so castconjure can find it under history.outputs.*.gifs|videos.",
+  "1": { "class_type": "H3TextEncode", "inputs": { "text": "{{PROMPT}}" } },
+  "2": { "class_type": "H3Sampler", "inputs": { "conditioning": ["1", 0], "frames": {{FRAMES}}, "height": {{RESOLUTION}}, "seed": {{SEED}} } },
+  "3": { "class_type": "VHS_VideoCombine", "inputs": { "images": ["2", 0], "frame_rate": 24, "format": "video/h264-mp4", "filename_prefix": "castconjure" } }
+}

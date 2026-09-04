@@ -1,0 +1,137 @@
+# castconjure built-in NG list. One entry per line. "#" starts a comment.
+# Matching is case-insensitive substring (after NFKC normalization, spaces removed).
+# The streamer adds their own words in the config UI / NG_WORDS. This list is deliberately
+# conservative-and-broad: false positives are acceptable, blocked comments get no reaction on screen.
+
+## sexual (ja)
+セックス
+エロ
+えろ
+おっぱい
+乳首
+巨乳
+貧乳
+下着
+パンツ
+パンチラ
+裸
+全裸
+ヌード
+性器
+性交
+挿入
+射精
+オナニー
+自慰
+淫
+痴漢
+レイプ
+強姦
+売春
+援交
+風俗
+AV女優
+ロリ
+ショタ
+幼女
+## sexual (en)
+sex
+sexy
+nude
+naked
+nsfw
+porn
+hentai
+boobs
+breasts
+nipple
+genital
+penis
+vagina
+dick
+cock
+pussy
+cum
+orgasm
+masturbat
+erotic
+lingerie
+underwear
+panties
+bikini
+fetish
+bdsm
+rape
+loli
+shota
+## violence / gore (ja)
+殺す
+殺せ
+殺害
+死ね
+自殺
+惨殺
+虐殺
+血まみれ
+流血
+斬首
+拷問
+処刑
+爆破
+テロ
+銃撃
+刺殺
+死体
+## violence / gore (en)
+kill
+murder
+suicide
+gore
+blood
+bloody
+beheading
+decapitat
+torture
+execution
+massacre
+terrorist
+bomb
+shooting
+stab
+corpse
+dismember
+## hate / slurs (minimal; extend locally)
+nigger
+faggot
+retard
+在日
+チョン
+シナ人
+## drugs
+cocaine
+heroin
+meth
+覚醒剤
+大麻
+## real-person keywords (names are handled by heuristics; these catch roles/titles)
+大統領
+首相
+総理
+天皇
+皇室
+president
+prime minister
+芸能人
+有名人
+celebrity
+俳優
+女優
+actress
+アイドル
+本人
+実在
+実写
+そっくり
+に似た
+似せて
+の顔

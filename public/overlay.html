@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<title>castconjure overlay</title>
+<style>
+  :root {
+    --w: 640px;              /* ?w=  clip width in px */
+    --pad: 32px;             /* ?pad= distance from edges */
+    --accent: #7c5cff;       /* ?accent= */
+    --font: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: var(--font); }
+  #stage {
+    position: fixed; width: var(--w); aspect-ratio: 16/9;
+    display: flex; flex-direction: column; align-items: stretch;
+    opacity: 0; transform: translateY(12px) scale(.98);
+    transition: opacity .35s ease, transform .35s ease;
+    pointer-events: none;
+  }
+  #stage.show { opacity: 1; transform: none; }
+  .pos-br { right: var(--pad); bottom: var(--pad); }
+  .pos-bl { left: var(--pad); bottom: var(--pad); }
+  .pos-tr { right: var(--pad); top: var(--pad); }
+  .pos-tl { left: var(--pad); top: var(--pad); }
+  .pos-c  { left: 50%; top: 50%; transform: translate(-50%,-50%) !important; }
+  #frame {
+    position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 14px; overflow: hidden;
+    background: rgba(10,10,16,.85); box-shadow: 0 12px 40px rgba(0,0,0,.45), 0 0 0 2px rgba(255,255,255,.08);
+  }
+  video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #card {
+    position: absolute; inset: 0; display: none; padding: 24px; box-sizing: border-box;
+    background: radial-gradient(120% 120% at 20% 0%, #3a2c8a, #10101a 70%);
+    color: #fff; font-size: 26px; line-height: 1.4; overflow: hidden;
+  }
+  #card.on { display: flex; align-items: center; justify-content: center; text-align: center; }
+  #card .p { animation: drift 5s linear infinite alternate; }
+  @keyframes drift { from { transform: translateY(-3px) } to { transform: translateY(3px) } }
+  #wait {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center; gap: 14px;
+    color: #eee; font-size: 22px; background: rgba(10,10,16,.75);
+  }
+  #wait.on { display: flex; }
+  .spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid rgba(255,255,255,.25); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  #meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
+  #author {
+    max-width: 75%; padding: 8px 14px; border-radius: 999px; background: rgba(0,0,0,.65); color: #fff;
+    font-size: 20px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6); border-left: 6px solid var(--accent);
+  }
+  #author small { font-weight: 400; opacity: .85; margin-left: 8px; }
+  #badge { padding: 5px 10px; border-radius: 6px; background: rgba(0,0,0,.55); color: #ddd; font-size: 13px; letter-spacing: .05em; }
+  #badge.hide { display: none; }
+  #comment { margin-top: 6px; color: #fff; font-size: 17px; opacity: .9; text-shadow: 0 1px 3px rgba(0,0,0,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<div id="stage" class="pos-br">
+  <div id="frame">
+    <video id="video" playsinline muted preload="auto"></video>
+    <div id="card"><div class="p"></div></div>
+    <div id="wait"><div class="spin"></div><span id="waitText">生成中…</span></div>
+  </div>
+  <div id="meta">
+    <div id="author"></div>
+    <div id="badge">AI生成 / AI generated</div>
+  </div>
+  <div id="comment"></div>
+</div>
+<script>
+(() => {
+  const q = new URLSearchParams(location.search);
+  const root = document.documentElement.style;
+  if (q.get('w')) root.setProperty('--w', q.get('w') + 'px');
+  if (q.get('pad')) root.setProperty('--pad', q.get('pad') + 'px');
+  if (q.get('accent')) root.setProperty('--accent', q.get('accent'));
+  const stage = document.getElementById('stage');
+  stage.className = 'pos-' + (q.get('pos') || 'br');
+  const unmuted = q.get('audio') === '1';
+  const showWait = q.get('wait') !== '0';
+
+  const video = document.getElementById('video');
+  const card = document.getElementById('card');
+  const cardText = card.querySelector('.p');
+  const wait = document.getElementById('wait');
+  const waitText = document.getElementById('waitText');
+  const author = document.getElementById('author');
+  const badge = document.getElementById('badge');
+  const comment = document.getElementById('comment');
+  video.muted = !unmuted;
+
+  let ws, current = null, cardTimer = null, hideTimer = null;
+  function connect() {
+    ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+    ws.onmessage = (e) => handle(JSON.parse(e.data));
+    ws.onclose = () => setTimeout(connect, 1500);
+  }
+  function send(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+
+  function setMeta(job) {
+    author.innerHTML = '';
+    author.textContent = job.authorName;
+    const s = document.createElement('small'); s.textContent = 'のコメント'; author.appendChild(s);
+    comment.textContent = job.text;
+    badge.classList.toggle('hide', !job.showAiBadge);
+  }
+  function stopAll() {
+    clearTimeout(cardTimer); clearTimeout(hideTimer);
+    video.pause(); video.removeAttribute('src'); video.load();
+    card.classList.remove('on'); wait.classList.remove('on');
+  }
+  function handle(m) {
+    if (m.type === 'play') {
+      stopAll();
+      current = m.job;
+      setMeta(m.job);
+      stage.classList.add('show');
+      if (m.job.kind === 'card') {
+        cardText.textContent = m.job.text;
+        card.classList.add('on');
+        cardTimer = setTimeout(() => ended(m.job.id), m.job.durationSec * 1000);
+      } else {
+        video.src = m.job.clipUrl;
+        video.onended = () => ended(m.job.id);
+        video.onerror = () => ended(m.job.id);
+        video.play().catch(() => ended(m.job.id));
+      }
+    } else if (m.type === 'generating') {
+      if (current) return; // keep playing what's on screen
+      stopAll();
+      if (!showWait) return;
+      setMeta(m.job);
+      waitText.textContent = '生成中…';
+      wait.classList.add('on');
+      stage.classList.add('show');
+    } else if (m.type === 'idle') {
+      if (current) return;
+      stopAll();
+      stage.classList.remove('show');
+    }
+  }
+  function ended(id) {
+    if (!current || current.id !== id) return;
+    current = null;
+    send({ type: 'ended', id });
+    hideTimer = setTimeout(() => { if (!current) { stopAll(); stage.classList.remove('show'); } }, 400);
+  }
+  connect();
+})();
+</script>
+</body>
+</html>

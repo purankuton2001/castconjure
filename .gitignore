@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+data/logs/*
+data/clips/*
+data/characters/*
+data/settings.json
+!data/logs/.gitkeep
+!data/clips/.gitkeep
+!data/characters/.gitkeep
+.DS_Store

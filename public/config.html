@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>castconjure</title>
+<style>
+  :root { --bg:#0f1117; --panel:#171a23; --line:#262a36; --fg:#e8e9ee; --mut:#8b90a0; --acc:#7c5cff; --ok:#3ecf8e; --warn:#f5a623; --err:#ff5c6c; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font: 14px/1.5 system-ui, "Hiragino Sans", sans-serif; }
+  header { display:flex; align-items:center; gap:16px; padding:14px 20px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:2; }
+  header h1 { font-size:18px; margin:0; letter-spacing:.02em; }
+  header .st { display:flex; gap:10px; align-items:center; flex-wrap:wrap; color:var(--mut); }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--mut); display:inline-block; margin-right:4px; }
+  .dot.on { background:var(--ok); } .dot.warn { background:var(--warn); } .dot.err { background:var(--err); }
+  main { display:grid; grid-template-columns: 1.1fr .9fr; gap:16px; padding:16px 20px; max-width:1400px; margin:0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; } }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:0 0 10px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 3px; }
+  input[type=text], input[type=number], textarea, select { width:100%; background:#0c0e14; border:1px solid var(--line); color:var(--fg); border-radius:6px; padding:7px 9px; font:inherit; }
+  textarea { min-height:70px; resize:vertical; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  button { background:#232736; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:7px 12px; cursor:pointer; font:inherit; }
+  button:hover { border-color:var(--acc); }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; }
+  button.danger { border-color:var(--err); color:var(--err); }
+  button:disabled { opacity:.45; cursor:default; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  .chk { display:flex; align-items:center; gap:6px; margin-top:8px; font-size:13px; }
+  .budget { height:8px; background:#0c0e14; border-radius:4px; overflow:hidden; margin:6px 0; }
+  .budget i { display:block; height:100%; background:var(--ok); }
+  .budget i.warn { background:var(--warn); } .budget i.err { background:var(--err); }
+  ul.jobs { list-style:none; margin:0; padding:0; }
+  ul.jobs li { display:flex; gap:8px; align-items:center; padding:6px 0; border-top:1px solid var(--line); }
+  ul.jobs li:first-child { border-top:none; }
+  .tag { font-size:11px; padding:2px 6px; border-radius:4px; background:#232736; color:var(--mut); white-space:nowrap; }
+  .tag.generating { color:var(--warn); } .tag.ready, .tag.playing, .tag.done { color:var(--ok); } .tag.failed, .tag.rejected { color:var(--err); }
+  .who { font-weight:600; white-space:nowrap; }
+  .txt { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#c9ccd6; }
+  pre#log { background:#0c0e14; border:1px solid var(--line); border-radius:6px; padding:8px; height:220px; overflow:auto; font-size:12px; margin:0; white-space:pre-wrap; }
+  .l-warn { color:var(--warn); } .l-error { color:var(--err); }
+  code { background:#0c0e14; padding:2px 5px; border-radius:4px; font-size:12px; }
+  .stats { display:flex; gap:14px; flex-wrap:wrap; color:var(--mut); font-size:12px; }
+  .stats b { color:var(--fg); }
+  .muted { color:var(--mut); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>castconjure</h1>
+  <div class="st">
+    <span><i class="dot" id="dRun"></i><span id="tRun">stopped</span></span>
+    <span><i class="dot" id="dChat"></i><span id="tChat">chat</span></span>
+    <span>backend: <b id="tBackend">-</b></span>
+    <span id="tBudget"></span>
+  </div>
+</header>
+<main>
+  <div>
+    <section>
+      <h2>Control</h2>
+      <div class="bar">
+        <button class="primary" id="bStart">▶ Start</button>
+        <button id="bStop">■ Stop</button>
+        <button id="bPause">⏸ Pause generation</button>
+        <button id="bResume">⏵ Resume</button>
+        <button id="bBudget" class="danger">Reset budget</button>
+      </div>
+      <div class="budget"><i id="budgetBar" style="width:0%"></i></div>
+      <div class="stats" id="stats"></div>
+      <p class="muted">OBS ブラウザソース: <code id="overlayUrl"></code>（幅1920 高1080、背景透過。<code>?pos=br|bl|tr|tl|c&w=640&audio=1</code>）</p>
+    </section>
+
+    <section>
+      <h2>Test comment</h2>
+      <div class="row">
+        <div><label>Author</label><input type="text" id="cAuthor" value="tester" /></div>
+        <div><label>Comment</label><input type="text" id="cText" placeholder="猫がサーフィンしてる" /></div>
+      </div>
+      <div class="bar">
+        <button class="primary" id="bSend">Send</button>
+        <span class="chk"><input type="checkbox" id="cOwner" /> as owner</span>
+        <span class="chk"><input type="checkbox" id="cMod" /> as moderator</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Pending approval</h2>
+      <ul class="jobs" id="pending"><li class="muted">none</li></ul>
+    </section>
+    <section>
+      <h2>Queue</h2>
+      <ul class="jobs" id="queue"><li class="muted">empty</li></ul>
+    </section>
+    <section>
+      <h2>Recent</h2>
+      <ul class="jobs" id="recent"><li class="muted">none</li></ul>
+    </section>
+    <section>
+      <h2>Log</h2>
+      <pre id="log"></pre>
+      <p class="muted">metrics JSONL: <code id="metricsFile"></code></p>
+    </section>
+  </div>
+
+  <div>
+    <form id="f" onsubmit="return false">
+      <section>
+        <h2>Platform</h2>
+        <div class="row">
+          <div><label>Platform</label>
+            <select name="platform"><option value="manual">manual (test / curated)</option><option value="youtube">YouTube Live (API key)</option></select></div>
+          <div><label>YouTube video ID</label><input type="text" name="youtubeVideoId" placeholder="e.g. dQw4w9WgXcQ" /></div>
+        </div>
+        <p class="muted">YouTube: <code>YOUTUBE_API_KEY</code> を .env に。配信中の動画IDを入れて Start。</p>
+      </section>
+
+      <section>
+        <h2>Generation</h2>
+        <div class="row3">
+          <div><label>Backend</label>
+            <select name="backend"><option value="mock">mock ($0, text card)</option><option value="fal">fal (H3 Max)</option><option value="local">local (ComfyUI)</option></select></div>
+          <div><label>Resolution</label><select name="resolution"><option value="480p">480p ($0.05/s)</option><option value="768p">768p ($0.08/s)</option></select></div>
+          <div><label>Duration (s)</label><input type="number" name="durationSec" min="5" max="10" /></div>
+        </div>
+        <div class="row">
+          <div><label>Budget per session (USD)</label><input type="number" name="budgetUsd" min="0" step="0.5" /></div>
+          <div><label>Max queue</label><input type="number" name="maxQueue" min="1" max="50" /></div>
+        </div>
+        <div class="chk"><input type="checkbox" name="audio" id="audio" /><label for="audio" style="margin:0">Generate with audio (H3 native audio; overlay needs <code>?audio=1</code>)</label></div>
+        <div class="chk"><input type="checkbox" name="showAiBadge" id="showAiBadge" /><label for="showAiBadge" style="margin:0">Show "AI生成" badge</label></div>
+      </section>
+
+      <section>
+        <h2>World prompt (per stream)</h2>
+        <textarea name="worldPrompt"></textarea>
+      </section>
+
+      <section>
+        <h2>Character (fixed)</h2>
+        <div class="row">
+          <div><label>Name</label><input type="text" name="character.name" /></div>
+          <div><label>Reference images (data/characters/ file names or URLs, comma separated, max 3)</label><input type="text" name="character.referenceImages" placeholder="mascot.png" /></div>
+        </div>
+        <label>Description</label><textarea name="character.description" placeholder="A round blue plankton mascot with big eyes and a tiny top hat"></textarea>
+        <label>Never (forbidden for this character)</label><input type="text" name="character.forbidden" placeholder="be violent, be sexualized, hold weapons" />
+        <p class="muted">自分のキャラのみ。他人のキャラ・既存IP・実在人物の顔は使わない（README 参照）。参照画像ありは reference-to-video 経路（$0.08/s + $0.02/枚）。</p>
+      </section>
+
+      <section>
+        <h2>Selection & safety</h2>
+        <div class="row3">
+          <div><label>Min interval (s)</label><input type="number" name="minIntervalSec" min="0" /></div>
+          <div><label>User cooldown (s)</label><input type="number" name="userCooldownSec" min="0" /></div>
+          <div><label>Max comment chars</label><input type="number" name="maxCommentChars" min="10" /></div>
+        </div>
+        <div class="row">
+          <div><label>Command prefix (empty = all comments)</label><input type="text" name="commandPrefix" placeholder="!gen" /></div>
+          <div><label>Approve command (mod/owner)</label><input type="text" name="approveCommand" /></div>
+        </div>
+        <div class="chk"><input type="checkbox" name="approvalMode" id="approvalMode" /><label for="approvalMode" style="margin:0">Approval mode (only approved comments generate)</label></div>
+        <label>Extra NG words (comma separated)</label><input type="text" name="ngWords" />
+      </section>
+      <div class="bar"><button class="primary" id="bSave">Save settings</button><span class="muted" id="saveMsg"></span></div>
+    </form>
+  </div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const form = $('f');
+  $('overlayUrl').textContent = location.origin + '/overlay';
+  const api = (p, body) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then(r => r.json());
+
+  function fill(s) {
+    for (const el of form.elements) {
+      if (!el.name) continue;
+      const v = el.name.split('.').reduce((o, k) => (o == null ? undefined : o[k]), s);
+      if (el.type === 'checkbox') el.checked = !!v;
+      else if (Array.isArray(v)) el.value = v.join(', ');
+      else if (v != null) el.value = v;
+    }
+  }
+  function collect() {
+    const out = { character: {} };
+    for (const el of form.elements) {
+      if (!el.name) continue;
+      let v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+      if (el.name === 'ngWords' || el.name === 'character.referenceImages') v = String(v).split(',').map(x => x.trim()).filter(Boolean);
+      if (el.name.startsWith('character.')) out.character[el.name.slice(10)] = v; else out[el.name] = v;
+    }
+    return out;
+  }
+  $('bSave').onclick = async () => {
+    const s = await api('/api/settings', collect());
+    fill(s); $('saveMsg').textContent = 'saved ' + new Date().toLocaleTimeString();
+  };
+  $('bStart').onclick = () => api('/api/control', { action: 'start' });
+  $('bStop').onclick = () => api('/api/control', { action: 'stop' });
+  $('bPause').onclick = () => api('/api/control', { action: 'pause' });
+  $('bResume').onclick = () => api('/api/control', { action: 'resume' });
+  $('bBudget').onclick = () => confirm('Reset spent budget to $0?') && api('/api/control', { action: 'reset-budget' });
+  $('bSend').onclick = async () => {
+    const text = $('cText').value.trim(); if (!text) return;
+    await api('/api/comment', { text, author: $('cAuthor').value, owner: $('cOwner').checked, moderator: $('cMod').checked });
+    $('cText').value = '';
+  };
+  $('cText').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('bSend').click(); });
+
+  function jobLi(j, actions) {
+    const li = document.createElement('li');
+    const tag = document.createElement('span'); tag.className = 'tag ' + j.status; tag.textContent = j.status;
+    const who = document.createElement('span'); who.className = 'who'; who.textContent = j.authorName;
+    const txt = document.createElement('span'); txt.className = 'txt'; txt.textContent = j.text; txt.title = j.prompt;
+    li.append(tag, who, txt);
+    if (actions) {
+      const ok = document.createElement('button'); ok.textContent = '✓'; ok.onclick = () => api('/api/approve', { id: j.id });
+      const no = document.createElement('button'); no.textContent = '✕'; no.className = 'danger'; no.onclick = () => api('/api/reject', { id: j.id });
+      li.append(ok, no);
+    } else if (j.status === 'queued') {
+      const no = document.createElement('button'); no.textContent = '✕'; no.className = 'danger'; no.onclick = () => api('/api/reject', { id: j.id });
+      li.append(no);
+    }
+    return li;
+  }
+  function list(id, jobs, actions, empty) {
+    const ul = $(id); ul.innerHTML = '';
+    if (!jobs.length) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = empty; ul.append(li); return; }
+    for (const j of jobs) ul.append(jobLi(j, actions));
+  }
+  function render(st) {
+    $('dRun').className = 'dot ' + (st.running ? (st.paused ? 'warn' : 'on') : '');
+    $('tRun').textContent = st.running ? (st.paused ? 'paused' : 'running') : 'stopped';
+    $('dChat').className = 'dot ' + (st.chatConnected ? 'on' : (st.running ? 'err' : ''));
+    $('tChat').textContent = st.chatInfo;
+    const pct = st.budgetUsd > 0 ? Math.min(100, st.spentUsd / st.budgetUsd * 100) : 0;
+    const bar = $('budgetBar'); bar.style.width = pct + '%'; bar.className = pct > 90 ? 'err' : pct > 70 ? 'warn' : '';
+    $('tBudget').textContent = `$${st.spentUsd.toFixed(2)} / $${st.budgetUsd}` + (st.budgetExhausted ? ' ⚠ exhausted' : '');
+    const yt = st.youtube ? ` · yt polls <b>${st.youtube.polls}</b> (~${st.youtube.estUnits} units, interval ${st.youtube.lastIntervalMs}ms)` : '';
+    $('stats').innerHTML = `received <b>${st.stats.received}</b> · filtered <b>${st.stats.filtered}</b> · generated <b>${st.stats.generated}</b> · failed <b>${st.stats.failed}</b> · played <b>${st.stats.played}</b>${yt}`;
+    list('pending', st.pending, true, 'none');
+    list('queue', (st.current ? [st.current] : []).concat(st.queue), false, 'empty');
+    list('recent', st.recent, false, 'none');
+  }
+  function addLog(level, line, t) {
+    const pre = $('log');
+    const d = document.createElement('div'); d.className = 'l-' + level;
+    d.textContent = `${new Date(t || Date.now()).toLocaleTimeString()} ${line}`;
+    pre.append(d); while (pre.children.length > 200) pre.firstChild.remove();
+    pre.scrollTop = pre.scrollHeight;
+  }
+
+  fetch('/api/state').then(r => r.json()).then(d => {
+    fill(d.settings); render(d.state); $('tBackend').textContent = d.backend; $('metricsFile').textContent = d.metricsFile;
+    for (const l of d.logs) addLog(l.level, l.line, l.t);
+  });
+  function connect() {
+    const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+    ws.onmessage = (e) => {
+      const m = JSON.parse(e.data);
+      if (m.type === 'hello') { render(m.state); }
+      else if (m.type === 'state') render(m.state);
+      else if (m.type === 'settings') fill(m.settings);
+      else if (m.type === 'log') addLog(m.level, m.line);
+    };
+    ws.onclose = () => setTimeout(connect, 1500);
+  }
+  connect();
+})();
+</script>
+</body>
+</html>
