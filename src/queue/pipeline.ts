@@ -199,8 +199,9 @@ export class Pipeline {
     this.metrics.log('comment_received', { id: msg.id, platform: msg.platform, author: msg.authorName, len: msg.text.length });
     const s = this.settings;
 
-    // Moderator approval command: "!ok" (latest pending) or "!ok <jobId prefix>"
-    if ((msg.isModerator || msg.isOwner) && msg.text.trim().toLowerCase().startsWith(s.approveCommand.toLowerCase())) {
+    // Approval command: "!ok" (latest pending) or "!ok <jobId prefix | author>". Only mods/owner; viewers' copies are dropped silently.
+    if (msg.text.trim().toLowerCase().startsWith(s.approveCommand.toLowerCase())) {
+      if (!msg.isModerator && !msg.isOwner) return this.reject(msg, 'command');
       const arg = msg.text.trim().slice(s.approveCommand.length).trim();
       const pending = this.order.map((id) => this.jobs.get(id)!).filter((j) => j.status === 'pending_approval');
       const target = arg ? pending.find((j) => j.id.startsWith(arg) || j.message.authorName === arg.replace(/^@/, '')) : pending.at(-1);

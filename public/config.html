@@ -207,7 +207,7 @@
     await api('/api/comment', { text, author: $('cAuthor').value, owner: $('cOwner').checked, moderator: $('cMod').checked });
     $('cText').value = '';
   };
-  $('cText').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('bSend').click(); });
+  $('cText').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.keyCode === 13) $('bSend').click(); });
 
   function jobLi(j, actions) {
     const li = document.createElement('li');

@@ -64,6 +64,7 @@ export type FilterReason =
   | 'ng_word'
   | 'real_person'
   | 'no_command_prefix'
+  | 'command'
   | 'rate_limit'
   | 'user_cooldown'
   | 'queue_full'
