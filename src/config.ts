@@ -8,6 +8,8 @@ export const DATA_DIR = path.join(ROOT, 'data');
 export const CLIPS_DIR = path.join(DATA_DIR, 'clips');
 export const LOGS_DIR = path.join(DATA_DIR, 'logs');
 export const CHARACTERS_DIR = path.join(DATA_DIR, 'characters');
+export const PERSONAS_DIR = path.join(DATA_DIR, 'personas');
+export const PERSONA_TEMPLATES_DIR = path.join(ROOT, 'personas');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 const env = (k: string, d = ''): string => (process.env[k] ?? d).trim();
@@ -20,11 +22,6 @@ const envBool = (k: string, d: boolean): boolean => {
   if (v === '') return d;
   return v === '1' || v === 'true' || v === 'yes' || v === 'on';
 };
-const envList = (k: string): string[] =>
-  env(k)
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
 
 /** Secrets and process-level config. Never sent to clients. */
 export const secrets = {
@@ -43,6 +40,27 @@ export const secrets = {
   youtubeMinPollMs: envNum('YOUTUBE_MIN_POLL_MS', 0),
   maxConcurrentGen: envNum('MAX_CONCURRENT_GEN', 1),
   genTimeoutMs: envNum('GEN_TIMEOUT_MS', 120_000),
+  /** F-10 face gacha: text-to-image and reference-edit models on fal. */
+  falImageModel: env('FAL_IMAGE_MODEL', 'fal-ai/flux/dev'),
+  falImageEditModel: env('FAL_IMAGE_EDIT_MODEL', 'fal-ai/flux-pro/kontext'),
+  /** F-11 voice: TTS model on fal + extra JSON merged into the request. */
+  falTtsModel: env('FAL_TTS_MODEL', 'fal-ai/minimax/speech-02-hd'),
+  falTtsExtra: env('FAL_TTS_EXTRA', '{}'),
+  /** F-14 reply mode: mock | anthropic | gemini | openai (BYOK). */
+  replyProvider: env('REPLY_PROVIDER', 'mock'),
+  replyModel: env('REPLY_MODEL'),
+  anthropicKey: env('ANTHROPIC_API_KEY'),
+  geminiKey: env('GEMINI_API_KEY') || env('GOOGLE_GENERATIVE_AI_API_KEY'),
+  openaiKey: env('OPENAI_API_KEY'),
+  /** Image generation is mock unless FAL_KEY is set and PERSONA_IMAGES=fal. */
+  personaImages: env('PERSONA_IMAGES', 'auto'),
+};
+
+/** Image / TTS unit prices (USD), rough fal list prices 2026-09; override via env. */
+export const personaPricing = {
+  imagePerCall: envNum('PRICE_IMAGE', 0.03),
+  imageEditPerCall: envNum('PRICE_IMAGE_EDIT', 0.04),
+  ttsPerCall: envNum('PRICE_TTS', 0.02),
 };
 
 /** fal pricing (USD per second of output), confirmed 2026-09. Override via env if fal changes it. */
@@ -61,22 +79,16 @@ export function defaultSettings(): Settings {
     resolution: (env('RESOLUTION', '480p') as Settings['resolution']) || '480p',
     durationSec: envNum('DURATION_SEC', 5),
     audio: envBool('AUDIO', false),
-    worldPrompt: env(
-      'WORLD_PROMPT',
-      'A whimsical, colorful animated world. Cinematic lighting, smooth motion, no text on screen.',
-    ),
-    character: {
-      name: env('CHARACTER_NAME'),
-      description: env('CHARACTER_DESCRIPTION'),
-      forbidden: env('CHARACTER_FORBIDDEN'),
-      referenceImages: envList('CHARACTER_REFERENCE_IMAGES').slice(0, 3),
-    },
+    worldPrompt: env('WORLD_PROMPT'),
+    personaId: env('PERSONA_ID', 'shirotsume-yui'),
+    replyMode: envBool('REPLY_MODE', false),
+    idlePoolSize: envNum('IDLE_POOL_SIZE', 12),
     minIntervalSec: envNum('MIN_INTERVAL_SEC', 30),
     userCooldownSec: envNum('USER_COOLDOWN_SEC', 120),
     commandPrefix: env('COMMAND_PREFIX', ''),
     approvalMode: envBool('APPROVAL_MODE', false),
     approveCommand: env('APPROVE_COMMAND', '!ok'),
-    ngWords: envList('NG_WORDS'),
+    ngWords: env('NG_WORDS').split(',').map((w) => w.trim()).filter(Boolean),
     budgetUsd: envNum('BUDGET_USD', 20),
     showAiBadge: envBool('SHOW_AI_BADGE', true),
     maxCommentChars: envNum('MAX_COMMENT_CHARS', 120),
@@ -89,7 +101,7 @@ export function loadSettings(): Settings {
   const base = defaultSettings();
   try {
     const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) as Partial<Settings>;
-    return sanitizeSettings({ ...base, ...raw, character: { ...base.character, ...(raw.character ?? {}) } });
+    return sanitizeSettings({ ...base, ...raw });
   } catch {
     return base;
   }
@@ -120,14 +132,9 @@ export function sanitizeSettings(s: Settings): Settings {
     commandPrefix: String(s.commandPrefix ?? '').trim(),
     approveCommand: String(s.approveCommand ?? '!ok').trim() || '!ok',
     ngWords: Array.isArray(s.ngWords) ? s.ngWords.map(String).map((w) => w.trim()).filter(Boolean) : [],
-    character: {
-      name: String(s.character?.name ?? ''),
-      description: String(s.character?.description ?? ''),
-      forbidden: String(s.character?.forbidden ?? ''),
-      referenceImages: (Array.isArray(s.character?.referenceImages) ? s.character.referenceImages : [])
-        .map(String)
-        .filter(Boolean)
-        .slice(0, 3),
-    },
+    worldPrompt: String(s.worldPrompt ?? ''),
+    personaId: String(s.personaId ?? '').replace(/[^a-z0-9_-]/gi, ''),
+    replyMode: !!s.replyMode,
+    idlePoolSize: clamp(s.idlePoolSize, 1, 60, 12),
   };
 }

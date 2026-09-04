@@ -5,69 +5,75 @@
 <title>castconjure overlay</title>
 <style>
   :root {
-    --w: 640px;              /* ?w=  clip width in px */
+    --w: 960px;              /* ?w=  stage width in px (pos=full ignores it) */
     --pad: 32px;             /* ?pad= distance from edges */
     --accent: #7c5cff;       /* ?accent= */
     --font: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
   }
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: var(--font); }
-  #stage {
-    position: fixed; width: var(--w); aspect-ratio: 16/9;
-    display: flex; flex-direction: column; align-items: stretch;
-    opacity: 0; transform: translateY(12px) scale(.98);
-    transition: opacity .35s ease, transform .35s ease;
-    pointer-events: none;
-  }
-  #stage.show { opacity: 1; transform: none; }
+  #stage { position: fixed; width: var(--w); aspect-ratio: 16/9; pointer-events: none; }
   .pos-br { right: var(--pad); bottom: var(--pad); }
   .pos-bl { left: var(--pad); bottom: var(--pad); }
   .pos-tr { right: var(--pad); top: var(--pad); }
   .pos-tl { left: var(--pad); top: var(--pad); }
-  .pos-c  { left: 50%; top: 50%; transform: translate(-50%,-50%) !important; }
-  #frame {
-    position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 14px; overflow: hidden;
-    background: rgba(10,10,16,.85); box-shadow: 0 12px 40px rgba(0,0,0,.45), 0 0 0 2px rgba(255,255,255,.08);
-  }
-  video { width: 100%; height: 100%; object-fit: cover; display: block; }
-  #card {
-    position: absolute; inset: 0; display: none; padding: 24px; box-sizing: border-box;
-    background: radial-gradient(120% 120% at 20% 0%, #3a2c8a, #10101a 70%);
-    color: #fff; font-size: 26px; line-height: 1.4; overflow: hidden;
-  }
-  #card.on { display: flex; align-items: center; justify-content: center; text-align: center; }
-  #card .p { animation: drift 5s linear infinite alternate; }
-  @keyframes drift { from { transform: translateY(-3px) } to { transform: translateY(3px) } }
-  #wait {
-    position: absolute; inset: 0; display: none; align-items: center; justify-content: center; gap: 14px;
-    color: #eee; font-size: 22px; background: rgba(10,10,16,.75);
-  }
+  .pos-c  { left: 50%; top: 50%; transform: translate(-50%,-50%); }
+  .pos-full { inset: 0; width: 100vw; height: 100vh; aspect-ratio: auto; }
+  #frame { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; background: transparent; }
+  .pos-full #frame { border-radius: 0; }
+  #frame.framed { background: rgba(10,10,16,.85); box-shadow: 0 12px 40px rgba(0,0,0,.45), 0 0 0 2px rgba(255,255,255,.08); }
+  /* two layers: idle (always on, two videos crossfading) and reaction (on top) */
+  .layer { position: absolute; inset: 0; }
+  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s ease; }
+  video.on { opacity: 1; }
+  #idleCard { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 10px;
+    background: radial-gradient(120% 120% at 20% 0%, #3a2c8a, #10101a 70%); color: #fff; }
+  #idleCard.on { display: flex; }
+  #idleCard .name { font-size: 40px; font-weight: 700; letter-spacing: .04em; animation: breathe 4s ease-in-out infinite; }
+  #idleCard .sub { font-size: 16px; opacity: .7; }
+  @keyframes breathe { 0%,100% { transform: scale(1); opacity: .9 } 50% { transform: scale(1.03); opacity: 1 } }
+  #reaction { opacity: 0; transition: opacity .3s ease; }
+  #reaction.on { opacity: 1; }
+  #card { position: absolute; inset: 0; display: none; padding: 24px; box-sizing: border-box; text-align: center;
+    background: radial-gradient(120% 120% at 80% 100%, #8a2c6a, #10101a 70%); color: #fff; font-size: 26px; line-height: 1.4; }
+  #card.on { display: flex; align-items: center; justify-content: center; }
+  #wait { position: absolute; left: 0; right: 0; bottom: 0; display: none; align-items: center; justify-content: center; gap: 12px; padding: 10px;
+    color: #eee; font-size: 18px; background: linear-gradient(transparent, rgba(0,0,0,.6)); }
   #wait.on { display: flex; }
-  .spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid rgba(255,255,255,.25); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+  .spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid rgba(255,255,255,.25); border-top-color: var(--accent); animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg) } }
-  #meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
-  #author {
-    max-width: 75%; padding: 8px 14px; border-radius: 999px; background: rgba(0,0,0,.65); color: #fff;
-    font-size: 20px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    text-shadow: 0 1px 2px rgba(0,0,0,.6); border-left: 6px solid var(--accent);
-  }
+  #meta { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 18px 16px; display: flex; flex-direction: column; gap: 8px; opacity: 0; transition: opacity .3s ease; }
+  #meta.on { opacity: 1; }
+  #subtitle { color: #fff; font-size: 26px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.9), 0 0 2px rgba(0,0,0,.9); text-wrap: balance; }
+  #subtitle:empty { display: none; }
+  .row { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
+  #author { max-width: 75%; padding: 8px 14px; border-radius: 999px; background: rgba(0,0,0,.65); color: #fff; font-size: 20px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.6); border-left: 6px solid var(--accent); }
   #author small { font-weight: 400; opacity: .85; margin-left: 8px; }
-  #badge { padding: 5px 10px; border-radius: 6px; background: rgba(0,0,0,.55); color: #ddd; font-size: 13px; letter-spacing: .05em; }
+  #badge { position: absolute; top: 12px; right: 14px; padding: 5px 10px; border-radius: 6px; background: rgba(0,0,0,.55); color: #ddd; font-size: 13px; letter-spacing: .05em; }
   #badge.hide { display: none; }
-  #comment { margin-top: 6px; color: #fff; font-size: 17px; opacity: .9; text-shadow: 0 1px 3px rgba(0,0,0,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #comment { color: #fff; font-size: 16px; opacity: .85; text-shadow: 0 1px 3px rgba(0,0,0,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 </head>
 <body>
-<div id="stage" class="pos-br">
+<div id="stage" class="pos-full">
   <div id="frame">
-    <video id="video" playsinline muted preload="auto"></video>
-    <div id="card"><div class="p"></div></div>
+    <div class="layer" id="idle">
+      <video id="idleA" playsinline muted preload="auto"></video>
+      <video id="idleB" playsinline muted preload="auto"></video>
+      <div id="idleCard"><div class="name"></div><div class="sub">唱えてくれたら、出てくるよ</div></div>
+    </div>
+    <div class="layer" id="reaction">
+      <video id="video" playsinline preload="auto"></video>
+      <div id="card"></div>
+    </div>
     <div id="wait"><div class="spin"></div><span id="waitText">生成中…</span></div>
-  </div>
-  <div id="meta">
-    <div id="author"></div>
+    <div id="meta">
+      <div id="subtitle"></div>
+      <div class="row"><div id="author"></div></div>
+      <div id="comment"></div>
+    </div>
     <div id="badge">AI生成 / AI generated</div>
   </div>
-  <div id="comment"></div>
 </div>
 <script>
 (() => {
@@ -77,75 +83,124 @@
   if (q.get('pad')) root.setProperty('--pad', q.get('pad') + 'px');
   if (q.get('accent')) root.setProperty('--accent', q.get('accent'));
   const stage = document.getElementById('stage');
-  stage.className = 'pos-' + (q.get('pos') || 'br');
+  const pos = q.get('pos') || 'full';
+  stage.className = 'pos-' + pos;
+  const frame = document.getElementById('frame');
+  if (pos !== 'full') frame.classList.add('framed');
   const unmuted = q.get('audio') === '1';
   const showWait = q.get('wait') !== '0';
+  const idleEnabled = q.get('idle') !== '0';
 
-  const video = document.getElementById('video');
-  const card = document.getElementById('card');
-  const cardText = card.querySelector('.p');
-  const wait = document.getElementById('wait');
-  const waitText = document.getElementById('waitText');
-  const author = document.getElementById('author');
-  const badge = document.getElementById('badge');
-  const comment = document.getElementById('comment');
+  const $ = (id) => document.getElementById(id);
+  const idleV = [$('idleA'), $('idleB')];
+  const idleCard = $('idleCard');
+  const video = $('video'), card = $('card'), reaction = $('reaction'), wait = $('wait'), meta = $('meta');
+  const subtitle = $('subtitle'), author = $('author'), comment = $('comment'), badge = $('badge');
   video.muted = !unmuted;
 
-  let ws, current = null, cardTimer = null, hideTimer = null;
+  // ---------- idle layer (F-13 / F-15): two <video>s alternating with a crossfade ----------
+  let pool = [], poolIdx = 0, active = 0, idleOn = false;
+  function setIdlePool(m) {
+    pool = (m.clips || []).filter(c => c.kind === 'video' && c.url);
+    idleCard.querySelector('.name').textContent = m.persona && m.persona.name ? m.persona.name : '';
+    const cardPool = (m.clips || []).some(c => c.kind === 'card');
+    if (!idleEnabled) return;
+    if (pool.length) { idleCard.classList.remove('on'); if (!idleOn) startIdle(); }
+    else { idleV.forEach(v => { v.classList.remove('on'); v.removeAttribute('src'); }); idleOn = false; idleCard.classList.toggle('on', cardPool || !!(m.persona && m.persona.name)); }
+  }
+  function startIdle() {
+    idleOn = true; poolIdx = 0; active = 0;
+    playIdle(idleV[0]);
+  }
+  function playIdle(v) {
+    const clip = pool[poolIdx % pool.length]; poolIdx++;
+    v.src = clip.url; v.currentTime = 0;
+    v.onended = null;
+    v.play().then(() => { v.classList.add('on'); }).catch(() => {});
+    // preload the next one and crossfade 300ms before the end
+    const other = idleV[1 - idleV.indexOf(v)];
+    const next = pool[poolIdx % pool.length];
+    other.src = next.url; other.load();
+    v.ontimeupdate = () => {
+      if (v.duration && v.duration - v.currentTime < 0.35) {
+        v.ontimeupdate = null;
+        other.play().then(() => { other.classList.add('on'); v.classList.remove('on'); }).catch(() => {});
+        setTimeout(() => { v.pause(); }, 400);
+        playIdleQueued(other);
+      }
+    };
+  }
+  function playIdleQueued(v) {
+    // v is already playing the queued clip; set up its handoff
+    const other = idleV[1 - idleV.indexOf(v)];
+    const next = pool[(poolIdx) % pool.length]; poolIdx++;
+    other.src = next.url; other.load();
+    v.ontimeupdate = () => {
+      if (v.duration && v.duration - v.currentTime < 0.35) {
+        v.ontimeupdate = null;
+        other.play().then(() => { other.classList.add('on'); v.classList.remove('on'); }).catch(() => {});
+        setTimeout(() => { v.pause(); }, 400);
+        playIdleQueued(other);
+      }
+    };
+  }
+
+  // ---------- reaction layer ----------
+  let ws, current = null, cardTimer = null;
   function connect() {
     ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
     ws.onmessage = (e) => handle(JSON.parse(e.data));
     ws.onclose = () => setTimeout(connect, 1500);
   }
   function send(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
-
   function setMeta(job) {
     author.innerHTML = '';
     author.textContent = job.authorName;
     const s = document.createElement('small'); s.textContent = 'のコメント'; author.appendChild(s);
     comment.textContent = job.text;
+    subtitle.textContent = job.reply || '';
     badge.classList.toggle('hide', !job.showAiBadge);
   }
-  function stopAll() {
-    clearTimeout(cardTimer); clearTimeout(hideTimer);
-    video.pause(); video.removeAttribute('src'); video.load();
-    card.classList.remove('on'); wait.classList.remove('on');
+  function stopReaction() {
+    clearTimeout(cardTimer);
+    reaction.classList.remove('on'); meta.classList.remove('on'); wait.classList.remove('on');
+    setTimeout(() => { if (!current) { video.pause(); video.removeAttribute('src'); video.load(); card.classList.remove('on'); } }, 350);
   }
   function handle(m) {
+    if (m.type === 'idlePool') { setIdlePool(m); return; }
     if (m.type === 'play') {
-      stopAll();
+      clearTimeout(cardTimer);
       current = m.job;
       setMeta(m.job);
-      stage.classList.add('show');
+      wait.classList.remove('on');
       if (m.job.kind === 'card') {
-        cardText.textContent = m.job.text;
+        card.textContent = m.job.text;
         card.classList.add('on');
+        reaction.classList.add('on'); meta.classList.add('on');
         cardTimer = setTimeout(() => ended(m.job.id), m.job.durationSec * 1000);
       } else {
+        card.classList.remove('on');
         video.src = m.job.clipUrl;
         video.onended = () => ended(m.job.id);
         video.onerror = () => ended(m.job.id);
-        video.play().catch(() => ended(m.job.id));
+        video.play().then(() => { reaction.classList.add('on'); meta.classList.add('on'); }).catch(() => ended(m.job.id));
       }
     } else if (m.type === 'generating') {
-      if (current) return; // keep playing what's on screen
-      stopAll();
+      if (current) return;
       if (!showWait) return;
-      setMeta(m.job);
-      waitText.textContent = '生成中…';
+      setMeta(m.job); subtitle.textContent = '';
       wait.classList.add('on');
-      stage.classList.add('show');
     } else if (m.type === 'idle') {
       if (current) return;
-      stopAll();
-      stage.classList.remove('show');
+      wait.classList.remove('on');
+      stopReaction();
     }
   }
   function ended(id) {
     if (!current || current.id !== id) return;
     current = null;
     send({ type: 'ended', id });
-    hideTimer = setTimeout(() => { if (!current) { stopAll(); stage.classList.remove('show'); } }, 400);
+    stopReaction();
   }
   connect();
 })();

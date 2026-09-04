@@ -24,8 +24,12 @@ export class NgFilter {
     }
   }
 
-  /** Returns null if allowed, otherwise the reason. */
-  check(text: string, extraWords: string[], maxChars: number): FilterReason | null {
+  /**
+   * Returns null if allowed, otherwise the reason.
+   * `allowNames` skips the real-person heuristic — used for the persona's own reply lines, which
+   * address the viewer as "〇〇さん" by design (the line is spoken, never depicted).
+   */
+  check(text: string, extraWords: string[], maxChars: number, opts: { allowNames?: boolean } = {}): FilterReason | null {
     const raw = text.trim();
     if (!raw) return 'empty';
     if (raw.length > maxChars) return 'too_long';
@@ -33,7 +37,7 @@ export class NgFilter {
     const norm = normalize(raw);
     for (const w of this.builtin) if (w && norm.includes(w)) return 'ng_word';
     for (const w of extraWords.map(normalize)) if (w && norm.includes(w)) return 'ng_word';
-    if (looksLikeRealPerson(raw)) return 'real_person';
+    if (!opts.allowNames && looksLikeRealPerson(raw)) return 'real_person';
     return null;
   }
 }

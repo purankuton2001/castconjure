@@ -3,21 +3,23 @@ import path from 'node:path';
 import { pipeline as streamPipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { CLIPS_DIR, secrets } from '../config.js';
-import { createBackend, resolveReferenceImages } from '../backend/index.js';
+import { createBackend } from '../backend/index.js';
 import type { ChatAdapter } from '../chat/adapter.js';
 import { ManualAdapter } from '../chat/manual.js';
 import { YouTubeAdapter } from '../chat/youtube.js';
 import { NgFilter } from '../filter/ngfilter.js';
 import { Selector } from '../filter/selector.js';
 import { MetricsLogger } from '../metrics/logger.js';
-import { buildPrompt } from '../prompt/builder.js';
-import type { ChatMessage, GenerateBackend, Job, PublicJob, PublicState, Settings, WsServerMessage } from '../types.js';
+import { buildIdlePrompt, buildPrompt } from '../prompt/builder.js';
+import { generateReply } from '../reply/llm.js';
+import { loadPersona, personaDir, personaUrl, referenceImageUris, referenceVoiceUri, savePersona } from '../persona/store.js';
+import type { ChatMessage, GenerateBackend, GenerateRequest, Job, Persona, PublicJob, PublicState, Settings, WsServerMessage } from '../types.js';
 
 type Listener = (msg: WsServerMessage) => void;
 
 /**
- * The core loop: comment -> filter/select -> prompt -> generate -> queue -> play.
- * Domain-agnostic plumbing; everything stream-specific lives in Settings.
+ * The core loop (v0.7): comment -> filter/select -> (reply) -> prompt -> generate -> queue -> play,
+ * over an always-on idle pool of the persona. Domain-agnostic plumbing; the persona and settings carry the rest.
  */
 export class Pipeline {
   settings: Settings;
@@ -34,6 +36,9 @@ export class Pipeline {
   private listeners = new Set<Listener>();
   private logLines: { level: 'info' | 'warn' | 'error'; line: string; t: number }[] = [];
   private seq = 0;
+  private persona: Persona | null = null;
+  private refCache?: { id: string; images: string[]; voice?: string; stamp: string };
+  private idleJob?: { running: boolean; done: number; total: number; abort: AbortController };
 
   running = false;
   paused = false;
@@ -46,7 +51,8 @@ export class Pipeline {
   constructor(settings: Settings) {
     this.settings = settings;
     this.backend = this.safeBackend(settings.backend);
-    this.metrics.log('boot', { backend: this.backend.name, platform: settings.platform });
+    this.reloadPersona();
+    this.metrics.log('boot', { backend: this.backend.name, platform: settings.platform, persona: this.persona?.id ?? null });
   }
 
   // ---------- wiring ----------
@@ -80,6 +86,108 @@ export class Pipeline {
     }
   }
 
+  get effectiveBackend(): string {
+    return this.backend.name;
+  }
+
+  // ---------- persona ----------
+  get activePersona(): Persona | null {
+    return this.persona;
+  }
+
+  reloadPersona(): Persona | null {
+    this.persona = this.settings.personaId ? loadPersona(this.settings.personaId) : null;
+    this.refCache = undefined;
+    this.broadcast({ type: 'persona', persona: this.persona });
+    this.broadcast(this.idlePoolMessage());
+    return this.persona;
+  }
+
+  /** Reference data URIs, cached per persona + file mtimes. */
+  private refs(): { images: string[]; voice?: string } {
+    const p = this.persona;
+    if (!p) return { images: [] };
+    const files = [p.references.face, p.references.full, p.references.scene, p.references.voice].filter(Boolean) as string[];
+    const stamp = files
+      .map((f) => {
+        try {
+          return String(fs.statSync(path.join(personaDir(p.id), f)).mtimeMs);
+        } catch {
+          return '0';
+        }
+      })
+      .join(',');
+    if (!this.refCache || this.refCache.id !== p.id || this.refCache.stamp !== stamp) {
+      this.refCache = { id: p.id, images: referenceImageUris(p), voice: referenceVoiceUri(p), stamp };
+    }
+    return { images: this.refCache.images, voice: this.refCache.voice };
+  }
+
+  idlePoolMessage(): WsServerMessage {
+    const p = this.persona;
+    const clips = (p?.idle?.clips ?? []).map((c) => ({ url: c.kind === 'video' ? personaUrl(p!.id, c.file) : '', kind: c.kind }));
+    return { type: 'idlePool', persona: { id: p?.id ?? '', name: p?.name ?? '', fanName: p?.fanName }, clips };
+  }
+
+  private request(prompt: string, audio = this.settings.audio): GenerateRequest {
+    const r = this.refs();
+    return { prompt, durationSec: this.settings.durationSec, resolution: this.settings.resolution, referenceImageUrls: r.images, referenceAudioUrl: r.voice, audio };
+  }
+
+  /** Cost of one reaction clip with the current persona/backend. */
+  estimateClipCostUsd(): number {
+    return this.backend.estimateCostUsd(this.request(''));
+  }
+
+  /** F-13: generate the idle pool. Runs in the background; progress via state. */
+  async generateIdlePool(count: number): Promise<void> {
+    const p = this.persona;
+    if (!p) throw new Error('no persona selected');
+    if (this.idleJob?.running) throw new Error('idle pool generation already running');
+    const abort = new AbortController();
+    this.idleJob = { running: true, done: 0, total: count, abort };
+    const dir = path.join(personaDir(p.id), 'idle');
+    fs.mkdirSync(dir, { recursive: true });
+    p.idle = { ...(p.idle ?? {}), clips: [] };
+    savePersona(p);
+    this.metrics.log('idle_pool_start', { persona: p.id, count, backend: this.backend.name, estimateUsd: this.estimateClipCostUsd() * count });
+    this.pushState();
+    try {
+      for (let i = 0; i < count; i++) {
+        if (abort.signal.aborted) break;
+        const prompt = buildIdlePrompt(i, this.settings, p, this.refs().images.length);
+        const t0 = Date.now();
+        try {
+          const res = await this.backend.generate(this.request(prompt, false), abort.signal);
+          let file = '';
+          if (res.kind === 'video') {
+            file = `idle/${String(i + 1).padStart(2, '0')}.mp4`;
+            await downloadTo(res.clipUrl, path.join(personaDir(p.id), file));
+          }
+          p.idle!.clips.push({ file, kind: res.kind, prompt, costUsd: res.costUsd });
+          savePersona(p);
+          this.spentUsd += res.costUsd;
+          this.metrics.log('idle_clip_done', { persona: p.id, index: i, genMs: res.genMs, costUsd: res.costUsd, kind: res.kind });
+        } catch (e) {
+          this.metrics.log('idle_clip_failed', { persona: p.id, index: i, error: (e as Error).message, ms: Date.now() - t0 });
+          this.log('error', `idle clip ${i + 1} failed: ${(e as Error).message}`);
+        }
+        this.idleJob.done = i + 1;
+        this.pushState();
+      }
+    } finally {
+      this.idleJob.running = false;
+      this.log('info', `idle pool: ${p.idle!.clips.length}/${count} clips ready`);
+      this.metrics.log('idle_pool_done', { persona: p.id, clips: p.idle!.clips.length, spentUsd: this.spentUsd });
+      this.broadcast(this.idlePoolMessage());
+      this.pushState();
+    }
+  }
+
+  cancelIdlePool(): void {
+    this.idleJob?.abort.abort();
+  }
+
   // ---------- settings ----------
   async updateSettings(next: Settings): Promise<void> {
     const prev = this.settings;
@@ -88,17 +196,14 @@ export class Pipeline {
       this.backend = this.safeBackend(next.backend);
       this.log('info', `backend switched to ${this.backend.name}`);
     }
-    this.metrics.log('settings', { ...redact(next) });
+    if (prev.personaId !== next.personaId) this.reloadPersona();
+    this.metrics.log('settings', { ...next });
     this.broadcast({ type: 'settings', settings: next });
     if (this.running && (prev.platform !== next.platform || prev.youtubeVideoId !== next.youtubeVideoId)) {
       await this.stopAdapter();
       await this.startAdapter();
     }
     this.pushState();
-  }
-
-  get effectiveBackend(): string {
-    return this.backend.name;
   }
 
   // ---------- lifecycle ----------
@@ -110,7 +215,7 @@ export class Pipeline {
     this.budgetExhausted = false;
     this.stats = { received: 0, filtered: 0, generated: 0, failed: 0, played: 0 };
     this.selector.reset();
-    this.metrics.log('session_start', { ...redact(this.settings), backend: this.backend.name });
+    this.metrics.log('session_start', { ...this.settings, backend: this.backend.name, persona: this.persona?.id ?? null, idleClips: this.persona?.idle?.clips.length ?? 0 });
     await this.startAdapter();
     this.pushState();
   }
@@ -175,7 +280,6 @@ export class Pipeline {
     this.chatConnected = false;
   }
 
-  /** Dev/manual injection (config UI "test comment"). Works even when platform=youtube. */
   inject(text: string, author: string, opts: { isOwner?: boolean; isModerator?: boolean }): ChatMessage {
     const now = Date.now();
     const msg: ChatMessage = {
@@ -199,7 +303,6 @@ export class Pipeline {
     this.metrics.log('comment_received', { id: msg.id, platform: msg.platform, author: msg.authorName, len: msg.text.length });
     const s = this.settings;
 
-    // Approval command: "!ok" (latest pending) or "!ok <jobId prefix | author>". Only mods/owner; viewers' copies are dropped silently.
     if (msg.text.trim().toLowerCase().startsWith(s.approveCommand.toLowerCase())) {
       if (!msg.isModerator && !msg.isOwner) return this.reject(msg, 'command');
       const arg = msg.text.trim().slice(s.approveCommand.length).trim();
@@ -216,8 +319,7 @@ export class Pipeline {
     if (ngReason) return this.reject(msg, ngReason);
     if (this.activeCount() >= s.maxQueue) return this.reject(msg, 'queue_full');
 
-    const refs = resolveReferenceImages(s.character.referenceImages);
-    const estimate = this.backend.estimateCostUsd({ prompt: '', durationSec: s.durationSec, resolution: s.resolution, referenceImageUrls: refs, audio: s.audio });
+    const estimate = this.estimateClipCostUsd();
     if (this.spentUsd + estimate > s.budgetUsd) {
       if (!this.budgetExhausted) {
         this.budgetExhausted = true;
@@ -229,11 +331,10 @@ export class Pipeline {
     }
 
     this.selector.markAccepted(msg);
-    const prompt = buildPrompt(sel.text, s, refs.length > 0);
     const job: Job = {
       id: `j${Date.now().toString(36)}${(++this.seq).toString(36)}`,
       message: { ...msg, text: sel.text },
-      prompt,
+      prompt: '',
       status: s.approvalMode ? 'pending_approval' : 'queued',
       createdAt: Date.now(),
     };
@@ -275,6 +376,14 @@ export class Pipeline {
     return true;
   }
 
+  /** F-09: streamer's subjective consistency rating (1–5) for a clip. */
+  rate(jobId: string, score: number, note?: string): boolean {
+    const job = this.jobs.get(jobId);
+    if (!job) return false;
+    this.metrics.log('consistency_rating', { job: jobId, score: Math.max(1, Math.min(5, Math.round(score))), note, backend: job.result?.backend, refImages: this.refs().images.length });
+    return true;
+  }
+
   // ---------- generation ----------
   private activeCount(): number {
     let n = 0;
@@ -299,9 +408,7 @@ export class Pipeline {
 
   private async runJob(job: Job): Promise<void> {
     const s = this.settings;
-    const refs = resolveReferenceImages(s.character.referenceImages);
-    const req = { prompt: job.prompt, durationSec: s.durationSec, resolution: s.resolution, referenceImageUrls: refs, audio: s.audio };
-    const estimate = this.backend.estimateCostUsd(req);
+    const estimate = this.estimateClipCostUsd();
     if (this.spentUsd + estimate > s.budgetUsd) {
       job.status = 'failed';
       job.error = 'budget';
@@ -311,12 +418,30 @@ export class Pipeline {
     }
     job.status = 'generating';
     job.genStartAt = Date.now();
-    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, refImages: refs.length, estimateUsd: estimate, promptLen: job.prompt.length });
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), secrets.genTimeoutMs);
+
+    // F-14 reply mode: one line in the persona's voice, NG-filtered, with a safe fallback.
+    if (s.replyMode && this.persona) {
+      try {
+        const r = await generateReply({ persona: this.persona, author: job.message.authorName, comment: job.message.text }, ac.signal);
+        const blocked = this.ng.check(r.text, s.ngWords, 200, { allowNames: true });
+        job.reply = blocked ? fallbackLine(this.persona) : r.text;
+        job.replyMs = r.ms;
+        this.metrics.log('reply_done', { job: job.id, provider: r.provider, ms: r.ms, blocked: blocked ?? null, chars: [...job.reply].length });
+      } catch (e) {
+        job.reply = fallbackLine(this.persona);
+        this.metrics.log('reply_failed', { job: job.id, error: (e as Error).message });
+        this.log('warn', `reply failed, using fallback: ${(e as Error).message}`);
+      }
+    }
+    const refs = this.refs();
+    job.prompt = buildPrompt({ comment: job.message.text, reply: job.reply, refCount: refs.images.length, hasVoice: !!refs.voice }, s, this.persona);
+    const req = this.request(job.prompt);
+    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, refImages: refs.images.length, voice: !!refs.voice && s.audio, estimateUsd: estimate, promptLen: job.prompt.length });
     if (!this.current) this.broadcast({ type: 'generating', job: this.toPublic(job) });
     this.pushState();
 
-    const ac = new AbortController();
-    const timeout = setTimeout(() => ac.abort(), secrets.genTimeoutMs);
     try {
       const result = await this.backend.generate(req, ac.signal);
       job.genDoneAt = Date.now();
@@ -336,10 +461,11 @@ export class Pipeline {
         costUsd: result.costUsd,
         spentUsd: this.spentUsd,
         clipUrl: result.clipUrl,
+        reply: job.reply,
         expandedPrompt: result.expandedPrompt,
         raw: result.raw,
       });
-      this.log('info', `generated [${job.id}] in ${(result.genMs / 1000).toFixed(1)}s ($${result.costUsd.toFixed(3)})`);
+      this.log('info', `generated [${job.id}] in ${(result.genMs / 1000).toFixed(1)}s ($${result.costUsd.toFixed(3)})${job.reply ? ` — "${job.reply}"` : ''}`);
     } catch (e) {
       job.status = 'failed';
       job.error = (e as Error).message;
@@ -359,9 +485,7 @@ export class Pipeline {
     try {
       fs.mkdirSync(CLIPS_DIR, { recursive: true });
       const file = `${jobId}.mp4`;
-      const res = await fetch(url);
-      if (!res.ok || !res.body) throw new Error(`download ${res.status}`);
-      await streamPipeline(Readable.fromWeb(res.body as import('node:stream/web').ReadableStream), fs.createWriteStream(path.join(CLIPS_DIR, file)));
+      await downloadTo(url, path.join(CLIPS_DIR, file));
       return `/clips/${file}`;
     } catch (e) {
       this.log('warn', `clip cache failed, using remote url: ${(e as Error).message}`);
@@ -387,7 +511,6 @@ export class Pipeline {
       sinceGenDoneMs: next.playStartAt - (next.genDoneAt ?? next.playStartAt),
     });
     this.broadcast({ type: 'play', job: this.toPublic(next) });
-    // Fallback in case the overlay never reports "ended" (not connected, OBS reload...).
     this.playTimer = setTimeout(() => this.playbackEnded(next.id, 'timeout'), (this.settings.durationSec + 4) * 1000);
     this.pushState();
   }
@@ -405,7 +528,6 @@ export class Pipeline {
     this.pumpPlay();
   }
 
-  /** Called when an overlay (re)connects: replay the current visual state. */
   currentVisual(): WsServerMessage {
     if (this.current) return { type: 'play', job: this.toPublic(this.current) };
     const gen = this.order.map((id) => this.jobs.get(id)!).find((j) => j.status === 'generating');
@@ -419,6 +541,7 @@ export class Pipeline {
       authorName: j.message.authorName,
       text: j.message.text,
       prompt: j.prompt,
+      reply: j.reply,
       status: j.status,
       clipUrl: j.result?.clipUrl,
       kind: j.result?.kind,
@@ -429,6 +552,8 @@ export class Pipeline {
 
   publicState(): PublicState {
     const all = this.order.map((id) => this.jobs.get(id)!);
+    const p = this.persona;
+    const r = this.refs();
     return {
       running: this.running,
       paused: this.paused,
@@ -447,10 +572,18 @@ export class Pipeline {
         .map((j) => this.toPublic(j)),
       stats: { ...this.stats },
       youtube: this.adapter?.stats?.() as PublicState['youtube'],
+      persona: p ? { id: p.id, name: p.name, refs: r.images.length, voice: !!r.voice, idleClips: p.idle?.clips.length ?? 0, confirmed: !!p.references.confirmed } : undefined,
+      idleJob: this.idleJob ? { running: this.idleJob.running, done: this.idleJob.done, total: this.idleJob.total } : undefined,
     };
   }
 }
 
-function redact(s: Settings): Record<string, unknown> {
-  return { ...s, character: { ...s.character, referenceImages: s.character.referenceImages.length } };
+function fallbackLine(p: Persona): string {
+  return p.personality.verbalTics?.[0] ?? 'やってみよ！';
+}
+
+async function downloadTo(url: string, file: string): Promise<void> {
+  const res = await fetch(url);
+  if (!res.ok || !res.body) throw new Error(`download ${res.status}`);
+  await streamPipeline(Readable.fromWeb(res.body as import('node:stream/web').ReadableStream), fs.createWriteStream(file));
 }

@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NgFilter, looksLikeRealPerson } from '../src/filter/ngfilter.js';
 import { Selector } from '../src/filter/selector.js';
-import { buildPrompt } from '../src/prompt/builder.js';
+import { buildIdlePrompt, buildPrompt } from '../src/prompt/builder.js';
+import { defaultSystemPrompt, generateReply } from '../src/reply/llm.js';
 import { defaultSettings } from '../src/config.js';
-import type { ChatMessage } from '../src/types.js';
+import type { ChatMessage, Persona } from '../src/types.js';
 
 const ng = new NgFilter();
 
@@ -46,13 +47,44 @@ test('selector: prefix, rate limit, user cooldown', () => {
   assert.deepEqual(sel.consider(msg({ text: '!gen x', authorId: 'u1', isOwner: true }), s, T + 40000), { ok: true, text: 'x' });
 });
 
-test('prompt builder composes world + character + comment + audio', () => {
-  const s = { ...defaultSettings(), worldPrompt: 'Neon Tokyo.', audio: true, character: { name: 'Plankton', description: 'a blue blob', forbidden: 'hold weapons', referenceImages: [] } };
-  const p = buildPrompt('a cat "surfing"\nnow', s, true);
-  assert.match(p, /^Neon Tokyo\./);
-  assert.match(p, /"Plankton" \(appearance exactly as in Image 1\): a blue blob\./);
-  assert.match(p, /must never: hold weapons/);
+const persona: Persona = {
+  id: 'yui', name: '白詰 ゆい', nameEn: 'Yui', adult: true, fanName: 'クローバー',
+  appearance: { summary: 'a Japanese woman in her early twenties', signatures: ['clover hair pin'] },
+  references: {}, personality: { verbalTics: ['やってみよ！'], replyMaxChars: 30 }, forbidden: ['weapons'],
+  worldPrompt: 'Cozy apartment at golden hour.',
+};
+
+test('prompt builder composes world + persona + comment + reply + audio', () => {
+  const s = { ...defaultSettings(), worldPrompt: '', audio: true };
+  const p = buildPrompt({ comment: 'a cat "surfing"\nnow', reply: 'やってみよ！', refCount: 3, hasVoice: true }, s, persona);
+  assert.match(p, /^Cozy apartment at golden hour\./);
+  assert.match(p, /"Yui" \(appearance exactly as in Image 1, outfit as in Image 2, setting as in Image 3\): a Japanese woman/);
+  assert.match(p, /Always visible: clover hair pin/);
+  assert.match(p, /Never: weapons/);
   assert.match(p, /"a cat 'surfing' now"/);
-  assert.match(p, /ambient sound/);
-  assert.match(p, /No real people/);
+  assert.match(p, /She says, in Japanese.*"やってみよ！" — her voice matches Audio 1/);
+  assert.match(p, /no minors/);
+  // per-stream world prompt overrides the persona's
+  assert.match(buildPrompt({ comment: 'x', refCount: 0, hasVoice: false }, { ...s, worldPrompt: 'Neon Tokyo.' }, persona), /^Neon Tokyo\./);
+});
+
+test('idle prompt loops and has no comment', () => {
+  const p = buildIdlePrompt(1, { ...defaultSettings(), worldPrompt: '' }, persona, 3);
+  assert.match(p, /adjusts her hair pin/);
+  assert.match(p, /so the clip loops/);
+  assert.doesNotMatch(p, /viewer's comment/);
+});
+
+test('reply mock + default system prompt', async () => {
+  const r = await generateReply({ persona, author: 'taro', comment: '踊って' });
+  assert.equal(r.provider, 'mock');
+  assert.match(r.text, /^taroさん、/);
+  assert.ok([...r.text].length <= 30);
+  assert.match(defaultSystemPrompt(persona), /白詰 ゆい/);
+});
+
+test('ng filter: allowNames skips the honorific heuristic but keeps the blocklist', () => {
+  assert.equal(ng.check('taroさん、やってみよ！', [], 200, { allowNames: true }), null);
+  assert.equal(ng.check('taroさん、やってみよ！', [], 200), 'real_person');
+  assert.equal(ng.check('taroさん、エロいね', [], 200, { allowNames: true }), 'ng_word');
 });

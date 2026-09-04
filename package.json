@@ -5,14 +5,17 @@
   "type": "module",
   "license": "MIT",
   "private": true,
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
-    "gen:once": "tsx src/cli/gen-once.ts"
+    "gen:once": "tsx src/cli/gen-once.ts",
+    "probe": "tsx src/cli/probe.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

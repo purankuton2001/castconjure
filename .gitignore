@@ -4,6 +4,7 @@ dist/
 data/logs/*
 data/clips/*
 data/characters/*
+data/personas/*
 data/settings.json
 !data/logs/.gitkeep
 !data/clips/.gitkeep

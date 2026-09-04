@@ -45,6 +45,16 @@
   .stats { display:flex; gap:14px; flex-wrap:wrap; color:var(--mut); font-size:12px; }
   .stats b { color:var(--fg); }
   .muted { color:var(--mut); font-size:12px; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:8px; }
+  figure.ref { margin:0; background:#0c0e14; border:1px solid var(--line); border-radius:8px; overflow:hidden; text-align:center; }
+  figure.ref img { width:100%; aspect-ratio:4/5; object-fit:cover; display:block; background:#0c0e14; }
+  figure.ref img[src=""] { visibility:hidden; }
+  figure.ref figcaption { font-size:11px; color:var(--mut); padding:4px; }
+  .gacha { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px; }
+  .gacha img { width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:6px; border:2px solid transparent; cursor:pointer; }
+  .gacha img:hover { border-color:var(--acc); }
+  .stars button { padding:2px 6px; font-size:12px; }
+  h3 { font-size:13px; margin:14px 0 4px; color:var(--fg); }
 </style>
 </head>
 <body>
@@ -70,7 +80,7 @@
       </div>
       <div class="budget"><i id="budgetBar" style="width:0%"></i></div>
       <div class="stats" id="stats"></div>
-      <p class="muted">OBS ブラウザソース: <code id="overlayUrl"></code>（幅1920 高1080、背景透過。<code>?pos=br|bl|tr|tl|c&w=640&audio=1</code>）</p>
+      <p class="muted">OBS ブラウザソース: <code id="overlayUrl"></code>（幅1920 高1080、背景透過。<code>?pos=full|br|bl|tr|tl|c&w=960&audio=1</code>。既定は全画面（推しが主役））</p>
     </section>
 
     <section>
@@ -131,22 +141,65 @@
         </div>
         <div class="chk"><input type="checkbox" name="audio" id="audio" /><label for="audio" style="margin:0">Generate with audio (H3 native audio; overlay needs <code>?audio=1</code>)</label></div>
         <div class="chk"><input type="checkbox" name="showAiBadge" id="showAiBadge" /><label for="showAiBadge" style="margin:0">Show "AI生成" badge</label></div>
+        <div class="chk"><input type="checkbox" name="replyMode" id="replyMode" /><label for="replyMode" style="margin:0">返事モード（LLM が推しの一言を返し、台詞と字幕に使う。<code>REPLY_PROVIDER</code>）</label></div>
       </section>
 
       <section>
         <h2>World prompt (per stream)</h2>
-        <textarea name="worldPrompt"></textarea>
+        <textarea name="worldPrompt" placeholder="空なら推しの既定の世界観を使う"></textarea>
       </section>
 
-      <section>
-        <h2>Character (fixed)</h2>
+      <section id="personaSec">
+        <h2>推し（persona）</h2>
         <div class="row">
-          <div><label>Name</label><input type="text" name="character.name" /></div>
-          <div><label>Reference images (data/characters/ file names or URLs, comma separated, max 3)</label><input type="text" name="character.referenceImages" placeholder="mascot.png" /></div>
+          <div><label>Active persona</label><select id="pSelect"></select></div>
+          <div><label>New persona</label><div style="display:flex;gap:6px"><input type="text" id="pNewId" placeholder="id (a-z0-9-)" style="width:45%"/><input type="text" id="pNewName" placeholder="名前"/><button id="bPersonaCreate">＋</button></div></div>
         </div>
-        <label>Description</label><textarea name="character.description" placeholder="A round blue plankton mascot with big eyes and a tiny top hat"></textarea>
-        <label>Never (forbidden for this character)</label><input type="text" name="character.forbidden" placeholder="be violent, be sexualized, hold weapons" />
-        <p class="muted">自分のキャラのみ。他人のキャラ・既存IP・実在人物の顔は使わない（README 参照）。参照画像ありは reference-to-video 経路（$0.08/s + $0.02/枚）。</p>
+        <div class="grid3" id="refs">
+          <figure class="ref"><img id="refFace" alt=""/><figcaption>顔 (Image 1)</figcaption></figure>
+          <figure class="ref"><img id="refFull" alt=""/><figcaption>全身 (Image 2)</figcaption></figure>
+          <figure class="ref"><img id="refScene" alt=""/><figcaption>世界観 (Image 3)</figcaption></figure>
+        </div>
+        <div class="bar">
+          <span id="refStatus" class="muted"></span>
+          <button id="bConfirm">参照セットを確認して保存</button>
+        </div>
+
+        <h3>1. 顔ガチャ（F-10）</h3>
+        <p class="muted">顔はここで<b>生成したものだけ</b>使えます。写真のアップロードはありません。生成指示には「架空の成人・実在人物に似せない」が常に付きます。</p>
+        <label>Prompt（空なら persona の referencePrompts.face）</label><textarea id="gachaPrompt" placeholder="Close-up portrait, …"></textarea>
+        <div class="bar"><button class="primary" id="bGacha">4 枚引く</button><span class="muted" id="gachaMsg"></span></div>
+        <div class="gacha" id="gacha"></div>
+
+        <h3>2. 声（F-11）</h3>
+        <div class="row">
+          <div><label>サンプル台詞（TTS で生成。実在人物の声は使わない）</label><input type="text" id="voiceText" /></div>
+          <div><label>&nbsp;</label><div class="bar" style="margin:0"><button id="bVoice">声を生成</button><audio id="voiceAudio" controls style="height:30px"></audio></div></div>
+        </div>
+
+        <h3>3. 人格（F-12）</h3>
+        <div class="row">
+          <div><label>名前</label><input type="text" id="pName" /></div>
+          <div><label>ファンの呼び方</label><input type="text" id="pFanName" /></div>
+        </div>
+        <label>キャッチコピー</label><input type="text" id="pCatch" />
+        <label>見た目（appearance.summary、英語。プロンプトに入る）</label><textarea id="pAppearance"></textarea>
+        <label>シグネチャ（カンマ区切り、英語。毎回必ず映すもの）</label><input type="text" id="pSignatures" />
+        <label>既定の世界観プロンプト（persona.worldPrompt、英語）</label><textarea id="pWorld"></textarea>
+        <div class="row">
+          <div><label>話し方</label><input type="text" id="pTone" /></div>
+          <div><label>口癖（カンマ区切り）</label><input type="text" id="pTics" /></div>
+        </div>
+        <label>禁止事項（1 行 1 項目、英語推奨。プロンプトの Never: に入る）</label><textarea id="pForbidden"></textarea>
+        <label>返事モードのシステムプロンプト（空なら人格から自動生成）</label><textarea id="pReplySys"></textarea>
+        <div class="bar"><button class="primary" id="bPersonaSave">人格を保存</button><span class="muted" id="pMsg"></span></div>
+
+        <h3>4. 待機映像プール（F-13）</h3>
+        <div class="row">
+          <div><label>本数</label><input type="number" id="idleCount" min="1" max="60" /></div>
+          <div><label>&nbsp;</label><div class="bar" style="margin:0"><button id="bIdle">生成する</button><button id="bIdleCancel" class="danger">中止</button></div></div>
+        </div>
+        <p class="muted" id="idleMsg"></p>
       </section>
 
       <section>
@@ -213,8 +266,13 @@
     const li = document.createElement('li');
     const tag = document.createElement('span'); tag.className = 'tag ' + j.status; tag.textContent = j.status;
     const who = document.createElement('span'); who.className = 'who'; who.textContent = j.authorName;
-    const txt = document.createElement('span'); txt.className = 'txt'; txt.textContent = j.text; txt.title = j.prompt;
+    const txt = document.createElement('span'); txt.className = 'txt'; txt.textContent = j.text + (j.reply ? '  「' + j.reply + '」' : ''); txt.title = j.prompt;
     li.append(tag, who, txt);
+    if (j.status === 'done' && j.kind === 'video') {
+      const st = document.createElement('span'); st.className = 'stars'; st.title = '顔一貫性 1-5';
+      for (let n = 1; n <= 5; n++) { const b = document.createElement('button'); b.textContent = String(n); b.onclick = () => { api('/api/rate', { id: j.id, score: n }); st.textContent = '★' + n; }; st.append(b); }
+      li.append(st);
+    }
     if (actions) {
       const ok = document.createElement('button'); ok.textContent = '✓'; ok.onclick = () => api('/api/approve', { id: j.id });
       const no = document.createElement('button'); no.textContent = '✕'; no.className = 'danger'; no.onclick = () => api('/api/reject', { id: j.id });
@@ -243,6 +301,8 @@
     list('pending', st.pending, true, 'none');
     list('queue', (st.current ? [st.current] : []).concat(st.queue), false, 'empty');
     list('recent', st.recent, false, 'none');
+    if (st.idleJob && st.idleJob.running) $('idleMsg').textContent = '待機クリップ生成中 ' + st.idleJob.done + '/' + st.idleJob.total;
+    else if (st.persona) $('idleMsg').textContent = '待機クリップ ' + st.persona.idleClips + ' 本' + (st.persona.refs < 3 ? '（参照セットが 3 枚未満）' : '');
   }
   function addLog(level, line, t) {
     const pre = $('log');
@@ -252,9 +312,85 @@
     pre.scrollTop = pre.scrollHeight;
   }
 
+  // ---------- persona ----------
+  let persona = null;
+  function renderPersonaList(list, activeId) {
+    const sel = $('pSelect'); sel.innerHTML = '';
+    for (const p of list) { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name + ' (' + p.id + ')'; if (p.id === activeId) o.selected = true; sel.append(o); }
+  }
+  function refUrl(p, rel) { return rel ? '/personas/' + encodeURIComponent(p.id) + '/' + rel + '?t=' + Date.now() : ''; }
+  function renderPersona(p) {
+    persona = p;
+    if (!p) { $('refStatus').textContent = 'persona がありません'; return; }
+    $('refFace').src = refUrl(p, p.references.face); $('refFull').src = refUrl(p, p.references.full); $('refScene').src = refUrl(p, p.references.scene);
+    const n = [p.references.face, p.references.full, p.references.scene].filter(Boolean).length;
+    $('refStatus').textContent = n === 0 ? '参照画像なし（顔ガチャから）' : (p.references.confirmed ? '参照セット ' + n + '/3 · 確認済み' : '参照セット ' + n + '/3 · 未確認');
+    $('bConfirm').disabled = n < 3 || !!p.references.confirmed;
+    $('gachaPrompt').placeholder = (p.referencePrompts && p.referencePrompts.face) || p.appearance.summary || '';
+    $('voiceText').value = (p.voice && p.voice.sampleLine) || '';
+    const va = $('voiceAudio'); if (p.references.voice) { va.src = refUrl(p, p.references.voice); va.style.display = ''; } else { va.removeAttribute('src'); va.style.display = 'none'; }
+    $('pName').value = p.name || ''; $('pFanName').value = p.fanName || ''; $('pCatch').value = p.catchphrase || '';
+    $('pAppearance').value = p.appearance.summary || ''; $('pSignatures').value = (p.appearance.signatures || []).join(', ');
+    $('pWorld').value = p.worldPrompt || ''; $('pTone').value = p.personality.tone || ''; $('pTics').value = (p.personality.verbalTics || []).join(', ');
+    $('pForbidden').value = (p.forbidden || []).join('\n'); $('pReplySys').value = p.replySystemPrompt || '';
+    $('idleMsg').textContent = '待機クリップ ' + ((p.idle && p.idle.clips.length) || 0) + ' 本';
+  }
+  $('pSelect').onchange = async () => { const p = await api('/api/persona/select', { id: $('pSelect').value }); renderPersona(p); };
+  $('bPersonaCreate').onclick = async () => {
+    const r = await api('/api/persona/create', { id: $('pNewId').value, name: $('pNewName').value });
+    if (r.error) { alert(r.error); return; }
+    const d = await fetch('/api/state').then(x => x.json()); renderPersonaList(d.personas, d.persona && d.persona.id); renderPersona(d.persona);
+  };
+  $('bGacha').onclick = async () => {
+    $('gachaMsg').textContent = '生成中…'; $('bGacha').disabled = true;
+    const r = await api('/api/persona/gacha', { prompt: $('gachaPrompt').value, count: 4 });
+    $('bGacha').disabled = false;
+    if (r.error) { $('gachaMsg').textContent = r.error; return; }
+    $('gachaMsg').textContent = r.backend + ' · $' + r.costUsd.toFixed(2) + ' · 気に入った顔をクリックすると全身と世界観を派生生成します';
+    renderGacha(r.candidates);
+  };
+  function renderGacha(cands) {
+    const g = $('gacha'); g.innerHTML = '';
+    for (const c of cands) { const img = document.createElement('img'); img.src = c.url; img.title = c.file; img.onclick = async () => {
+      if (!confirm('この顔で参照セット（全身・世界観）を派生生成しますか？')) return;
+      $('gachaMsg').textContent = '派生生成中…';
+      const r = await api('/api/persona/adopt', { candidate: c.file });
+      if (r.error) { $('gachaMsg').textContent = r.error; return; }
+      $('gachaMsg').textContent = '参照セットを作りました（$' + r.costUsd.toFixed(2) + '）。下の 3 枚を確認して保存してください';
+      renderPersona(r.persona);
+    }; g.append(img); }
+  }
+  $('bConfirm').onclick = async () => { renderPersona(await api('/api/persona/confirm', { confirmed: true })); };
+  $('bVoice').onclick = async () => {
+    $('bVoice').disabled = true; const r = await api('/api/persona/voice', { text: $('voiceText').value }); $('bVoice').disabled = false;
+    if (r.error) { alert(r.error); return; } renderPersona(r.persona);
+  };
+  $('bPersonaSave').onclick = async () => {
+    const patch = {
+      name: $('pName').value, fanName: $('pFanName').value, catchphrase: $('pCatch').value,
+      appearance: { summary: $('pAppearance').value, signatures: $('pSignatures').value.split(',').map(x => x.trim()).filter(Boolean) },
+      worldPrompt: $('pWorld').value,
+      personality: { tone: $('pTone').value, verbalTics: $('pTics').value.split(',').map(x => x.trim()).filter(Boolean) },
+      forbidden: $('pForbidden').value.split('\n').map(x => x.trim()).filter(Boolean),
+      replySystemPrompt: $('pReplySys').value,
+    };
+    const p = await api('/api/persona/save', patch); if (p.error) { alert(p.error); return; }
+    renderPersona(p); $('pMsg').textContent = 'saved ' + new Date().toLocaleTimeString();
+  };
+  $('bIdle').onclick = async () => {
+    const count = Number($('idleCount').value || 12);
+    const est = await fetch('/api/persona/idle/estimate?count=' + count).then(r => r.json());
+    if (!confirm(count + ' 本の待機クリップを ' + est.backend + ' で生成します。推定 $' + est.totalUsd.toFixed(2) + '。既存のプールは置き換えます。')) return;
+    const r = await api('/api/persona/idle', { count }); if (r.error) alert(r.error);
+  };
+  $('bIdleCancel').onclick = () => api('/api/persona/idle', { action: 'cancel' });
+
   fetch('/api/state').then(r => r.json()).then(d => {
     fill(d.settings); render(d.state); $('tBackend').textContent = d.backend; $('metricsFile').textContent = d.metricsFile;
     for (const l of d.logs) addLog(l.level, l.line, l.t);
+    renderPersonaList(d.personas, d.persona && d.persona.id); renderPersona(d.persona);
+    $('idleCount').value = d.settings.idlePoolSize;
+    fetch('/api/persona/gacha').then(r => r.json()).then(renderGacha);
   });
   function connect() {
     const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
@@ -263,6 +399,7 @@
       if (m.type === 'hello') { render(m.state); }
       else if (m.type === 'state') render(m.state);
       else if (m.type === 'settings') fill(m.settings);
+      else if (m.type === 'persona') renderPersona(m.persona);
       else if (m.type === 'log') addLog(m.level, m.line);
     };
     ws.onclose = () => setTimeout(connect, 1500);

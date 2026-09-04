@@ -1,18 +1,22 @@
 import { loadSettings, secrets } from './config.js';
+import { seedTemplates } from './persona/store.js';
 import { Pipeline } from './queue/pipeline.js';
 import { createServer } from './server/http.js';
 
+seedTemplates();
 const settings = loadSettings();
 const pipeline = new Pipeline(settings);
 createServer(pipeline, secrets.port);
 
 const base = `http://127.0.0.1:${secrets.port}`;
+const p = pipeline.activePersona;
 console.log(`
   castconjure
   ─────────────────────────────────────────
   config UI : ${base}/
   OBS source: ${base}/overlay   (browser source, 1920x1080, transparent)
   backend   : ${pipeline.effectiveBackend}   platform: ${settings.platform}
+  persona   : ${p ? `${p.name} (${p.id}) refs=${[p.references.face, p.references.full, p.references.scene].filter(Boolean).length} idle=${p.idle?.clips.length ?? 0}` : 'none'}
   metrics   : ${pipeline.metrics.file}
 `);
 

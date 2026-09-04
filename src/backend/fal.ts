@@ -1,11 +1,31 @@
 import { pricing, secrets } from '../config.js';
 import type { GenerateBackend, GenerateRequest, GenerateResult } from '../types.js';
 
+/** Submit to the fal queue REST API and wait for the result. Shared by video, image and TTS calls. */
+export async function falQueue<T>(model: string, input: Record<string, unknown>, signal?: AbortSignal, key = secrets.falKey): Promise<T> {
+  if (!key) throw new Error('FAL_KEY is not set (BYOK: create one at fal.ai/dashboard/keys)');
+  const headers = { Authorization: `Key ${key}`, 'Content-Type': 'application/json' };
+  const submit = await fetch(`https://queue.fal.run/${model}`, { method: 'POST', headers, body: JSON.stringify(input), signal });
+  if (!submit.ok) throw new Error(`fal submit ${model} ${submit.status}: ${(await submit.text()).slice(0, 300)}`);
+  const { status_url, response_url } = (await submit.json()) as { request_id: string; status_url: string; response_url: string };
+  for (;;) {
+    if (signal?.aborted) throw new Error('aborted');
+    await new Promise((r) => setTimeout(r, 500));
+    const st = await fetch(status_url, { headers, signal });
+    if (!st.ok) throw new Error(`fal status ${st.status}`);
+    const s = (await st.json()) as { status: string; error?: unknown };
+    if (s.status === 'COMPLETED') break;
+    if (s.status !== 'IN_QUEUE' && s.status !== 'IN_PROGRESS') throw new Error(`fal status ${s.status}: ${JSON.stringify(s.error ?? '')}`);
+  }
+  const out = await fetch(response_url, { headers, signal });
+  if (!out.ok) throw new Error(`fal result ${out.status}: ${(await out.text()).slice(0, 300)}`);
+  return (await out.json()) as T;
+}
+
 /**
- * fal backend for MiniMax H3 Max via the fal queue REST API (no SDK dependency).
+ * fal backend for MiniMax H3 Max.
  *   text-to-video      : no reference images
- *   reference-to-video : reference images present (character consistency)
- * Endpoint IDs are configurable (FAL_T2V_MODEL / FAL_R2V_MODEL). BYOK: FAL_KEY stays on this machine.
+ *   reference-to-video : persona reference images (+ reference voice when audio is on)
  * Pricing (2026-09): t2v 480p $0.05/s, 768p $0.08/s; r2v $0.08/s + $0.02/reference image.
  */
 export class FalBackend implements GenerateBackend {
@@ -33,32 +53,13 @@ export class FalBackend implements GenerateBackend {
       enable_safety_checker: true,
       aspect_ratio: '16:9',
     };
-    if (useRef) input.reference_image_urls = req.referenceImageUrls;
-
-    const headers = { Authorization: `Key ${this.key}`, 'Content-Type': 'application/json' };
-    const submit = await fetch(`https://queue.fal.run/${model}`, { method: 'POST', headers, body: JSON.stringify(input), signal });
-    if (!submit.ok) throw new Error(`fal submit ${submit.status}: ${(await submit.text()).slice(0, 300)}`);
-    const { request_id, status_url, response_url } = (await submit.json()) as {
-      request_id: string;
-      status_url: string;
-      response_url: string;
-    };
-
-    // Poll status. H3 Max typically completes in ~3s; poll at 500ms.
-    for (;;) {
-      if (signal.aborted) throw new Error('aborted');
-      await new Promise((r) => setTimeout(r, 500));
-      const st = await fetch(status_url, { headers, signal });
-      if (!st.ok) throw new Error(`fal status ${st.status}`);
-      const s = (await st.json()) as { status: string; error?: unknown };
-      if (s.status === 'COMPLETED') break;
-      if (s.status !== 'IN_QUEUE' && s.status !== 'IN_PROGRESS') throw new Error(`fal status ${s.status}: ${JSON.stringify(s.error ?? '')}`);
+    if (useRef) {
+      input.reference_image_urls = req.referenceImageUrls;
+      if (req.audio && req.referenceAudioUrl) input.reference_audio_urls = [req.referenceAudioUrl];
     }
-    const out = await fetch(response_url, { headers, signal });
-    if (!out.ok) throw new Error(`fal result ${out.status}: ${(await out.text()).slice(0, 300)}`);
-    const body = (await out.json()) as { video?: { url?: string }; expanded_prompt?: string; timings?: unknown };
+    const body = await falQueue<{ video?: { url?: string }; expanded_prompt?: string; timings?: unknown; seed?: number }>(model, input, signal, this.key);
     const url = body.video?.url;
-    if (!url) throw new Error(`fal result has no video url (request ${request_id})`);
+    if (!url) throw new Error('fal result has no video url');
     return {
       clipUrl: url,
       kind: 'video',
@@ -66,7 +67,7 @@ export class FalBackend implements GenerateBackend {
       costUsd: this.estimateCostUsd(req),
       backend: 'fal',
       expandedPrompt: body.expanded_prompt,
-      raw: { request_id, timings: body.timings },
+      raw: { timings: body.timings, seed: body.seed },
     };
   }
 }
