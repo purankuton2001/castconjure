@@ -19,7 +19,9 @@ import path from 'node:path';
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
 const BASE = opt('base', 'http://127.0.0.1:8787');
-const comments = (opt('comments', '') || opt('comment', 'dance!!')).split('|').map((s) => s.trim()).filter(Boolean);
+// --replay "file.mp4:comment text|file2.mp4:text" plays cached clips instead of generating (no cost; overlay/sync tests)
+const replays = opt('replay', '').split('|').map((s) => s.trim()).filter(Boolean).map((s) => { const i = s.indexOf(':'); return { file: s.slice(0, i), text: s.slice(i + 1) }; });
+const comments = replays.length ? replays.map((r) => r.text) : (opt('comments', '') || opt('comment', 'dance!!')).split('|').map((s) => s.trim()).filter(Boolean);
 const authors = (opt('authors', 'taro_k|mika|ren|sora|kazu|yujin')).split('|');
 const out = path.resolve(opt('out', 'docs/live.mp4'));
 const lang = opt('lang', 'en');
@@ -49,7 +51,7 @@ const events = [];
 for (let i = 0; i < comments.length; i++) {
   const comment = comments[i], author = authors[i % authors.length];
   const tComment = Date.now();
-  const posted = await api('/api/comment', { text: comment, author });
+  const posted = replays.length ? await api('/api/replay', { file: replays[i].file, text: comment, author, reply: `${author}, let's do it!` }) : await api('/api/comment', { text: comment, author });
   if (!posted.ok) { console.log(`skip "${comment}": ${posted.error}`); continue; }
   const ev = { author, comment, tComment, tGen: 0, tAck: 0, tPlay: 0, tEnd: 0, reply: '', jobId: '', clipUrl: '' };
   for (let k = 0; k < 600; k++) {
@@ -79,7 +81,7 @@ const webm = await video.path();
 const rel = (t) => (t - tCtx) / 1000;
 const out_events = [];
 for (const ev of events) {
-  let clipFile = path.resolve(ROOT, 'data/clips', `${ev.jobId}.mp4`);
+  let clipFile = path.resolve(ROOT, 'data/clips', ev.clipUrl.startsWith('/clips/') ? path.basename(ev.clipUrl) : `${ev.jobId}.mp4`);
   for (let k = 0; !fs.existsSync(clipFile) && k < 40; k++) await sleep(500);
   if (!fs.existsSync(clipFile) && /^https?:/.test(ev.clipUrl)) fs.writeFileSync(clipFile, Buffer.from(await (await fetch(ev.clipUrl)).arrayBuffer()));
   let tPlay = rel(ev.tPlay);

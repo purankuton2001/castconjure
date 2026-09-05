@@ -601,6 +601,30 @@ export class Pipeline {
     return true;
   }
 
+  /** Dev: play a cached clip file (data/clips/<file>) as if it were a fresh reaction. No generation, no cost. */
+  replayFile(file: string, text: string, author: string, reply?: string): string | null {
+    const safe = path.basename(file);
+    if (!fs.existsSync(path.join(CLIPS_DIR, safe))) return null;
+    const now = Date.now();
+    const job: Job = {
+      id: `r${now.toString(36)}${(++this.seq).toString(36)}`,
+      message: { id: `replay-${now}`, platform: 'manual', authorName: author || 'tester', authorId: `manual:${author}`, text, publishedAt: now, receivedAt: now, isModerator: false, isOwner: false },
+      prompt: '(replay)',
+      reply,
+      status: 'ready',
+      createdAt: now,
+      genStartAt: now,
+      genDoneAt: now,
+      result: { clipUrl: `/clips/${safe}`, kind: 'video', genMs: 0, costUsd: 0, backend: 'fal' },
+    };
+    this.jobs.set(job.id, job);
+    this.order.push(job.id);
+    this.metrics.log('replay_file', { job: job.id, file: safe });
+    this.pumpPlay();
+    this.pushState();
+    return job.id;
+  }
+
   playbackEnded(jobId: string, source = 'overlay'): void {
     const job = this.jobs.get(jobId);
     if (!job || this.current?.id !== jobId) return;

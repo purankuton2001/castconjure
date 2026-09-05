@@ -89,7 +89,11 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
         if (p === '/api/reject') return json(res, { ok: pipeline.rejectJob(String(body.id ?? '')) });
         if (p === '/api/rate') return json(res, { ok: pipeline.rate(String(body.id ?? ''), Number(body.score ?? 0), body.note ? String(body.note) : undefined) });
         if (p === '/api/replay') {
-          // dev: replay a finished clip on the overlay (no generation, no cost)
+          // dev: replay a finished clip on the overlay (no generation, no cost): {id} or {file, text, author, reply}
+          if (body.file) {
+            const id = pipeline.replayFile(String(body.file), String(body.text ?? 'replay'), String(body.author ?? 'tester'), body.reply ? String(body.reply) : undefined);
+            return json(res, { ok: !!id, id }, id ? 200 : 404);
+          }
           const ok = pipeline.replay(String(body.id ?? ''));
           return json(res, { ok }, ok ? 200 : 404);
         }
