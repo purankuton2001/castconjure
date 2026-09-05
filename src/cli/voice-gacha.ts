@@ -38,13 +38,14 @@ if (opt('adopt')) {
   const i = Number(opt('adopt'));
   const wav = path.join(dir, `${i}.wav`);
   if (!fs.existsSync(wav)) throw new Error(`candidate ${i} not found (${wav})`);
-  fs.copyFileSync(wav, path.join(personaDir(persona.id), 'voice.wav'));
-  persona.references.voice = 'voice.wav';
+  // fal infers the format from the data URI; mp3 (audio/mpeg) is accepted, audio/wav is not
+  spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', wav, '-b:a', '128k', path.join(personaDir(persona.id), 'voice.mp3')], { stdio: 'inherit' });
+  persona.references.voice = 'voice.mp3';
   persona.references.voices = {}; // one H3-native voice for every language
   persona.voice = { ...(persona.voice ?? {}), source: 'h3' };
   savePersona(persona);
   console.log('reference voice set to voice-gacha candidate', i);
-  const uri = fileDataUri(persona.id, 'voice.wav')!;
+  const uri = fileDataUri(persona.id, 'voice.mp3')!;
   const c = await cloneVoice(uri, persona.voice?.sampleLine ?? INTRO.ja);
   persona.voice = { ...(persona.voice ?? {}), customVoiceId: c.voiceId };
   savePersona(persona);
