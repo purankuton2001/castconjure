@@ -144,7 +144,7 @@ export class Pipeline {
     const r = this.refs(lang);
     const mode = this.settings.genMode;
     const frame = mode !== 'r2v' ? this.firstFrameUri() : undefined;
-    return { prompt, durationSec: this.settings.durationSec, resolution: this.settings.resolution, referenceImageUrls: frame ? [] : r.images, referenceAudioUrl: r.voice, firstFrameUrl: frame, mode: frame ? mode : 'r2v', audio };
+    return { prompt, durationSec: this.settings.durationSec, resolution: this.settings.resolution, referenceImageUrls: frame ? [] : r.images, referenceAudioUrl: r.voice, firstFrameUrl: frame, mode: frame ? mode : 'r2v', seed: this.persona?.seed, audio };
   }
 
   /** 16:9 first frame for i2v modes: refs/frame.png, extracted from the idle pool (falls back to r2v when missing). */
@@ -505,7 +505,7 @@ export class Pipeline {
       }
     }
     const req = this.request(job.prompt, this.settings.audio, lang);
-    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, genMode: useFrame ? s.genMode : 'r2v', refImages: useFrame ? 0 : refs.images.length, refMode: s.refMode, voice: !useFrame && !!refs.voice && s.audio, lang, style: this.persona?.style ?? 'photoreal', estimateUsd: estimate, promptLen: job.prompt.length });
+    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, genMode: useFrame ? s.genMode : 'r2v', seed: this.persona?.seed, refImages: useFrame ? 0 : refs.images.length, refMode: s.refMode, voice: !useFrame && !!refs.voice && s.audio, lang, style: this.persona?.style ?? 'photoreal', estimateUsd: estimate, promptLen: job.prompt.length });
     if (!this.current) this.broadcast({ type: 'generating', job: this.toPublic(job) });
     this.pushState();
 

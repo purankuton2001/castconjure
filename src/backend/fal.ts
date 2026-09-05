@@ -80,6 +80,7 @@ export class FalBackend implements GenerateBackend {
       prompt_expansion_mode: secrets.falPromptExpansion,
       enable_safety_checker: true,
     };
+    if (Number.isFinite(req.seed)) input.seed = req.seed;
     if (i2v) {
       input.image_url = req.firstFrameUrl; // aspect ratio follows the frame (16:9 idle frame)
     } else {
