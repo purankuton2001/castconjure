@@ -64,6 +64,8 @@ test('prompt builder composes world + persona + comment + reply + audio', () => 
   assert.match(p, /Never: weapons/);
   assert.match(p, /"a cat 'surfing' now"/);
   assert.match(p, /She says, in Japanese.*"やってみよ！" — her voice matches Audio 1/);
+  assert.match(buildPrompt({ comment: 'x', reply: "mika, let's do it!", refCount: 1, hasVoice: false }, s, persona), /She says, in English/);
+  assert.match(buildPrompt({ comment: 'x', reply: 'yujin, 해보자!', refCount: 1, hasVoice: false }, s, persona), /She says, in Korean/);
   assert.match(p, /no minors/);
   // per-stream world prompt overrides the persona's
   assert.match(buildPrompt({ comment: 'x', refCount: 0, hasVoice: false }, { ...s, worldPrompt: 'Neon Tokyo.' }, persona), /^Neon Tokyo\./);

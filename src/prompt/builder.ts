@@ -31,9 +31,10 @@ export function buildPrompt(input: PromptInput, s: Settings, persona: Persona | 
 
   parts.push(`She reacts to a viewer's comment: "${sanitizeComment(input.comment)}". She does what the comment asks, in this setting, expressively.`);
   if (input.reply) {
+    const lang = /[\uac00-\ud7a3]/.test(input.reply) ? 'Korean' : /[\u3040-\u30ff\u4e00-\u9fff]/.test(input.reply) ? 'Japanese' : 'English';
     parts.push(
       s.audio
-        ? `She says, in Japanese, looking at the camera: "${sanitizeComment(input.reply)}"${input.hasVoice ? ' — her voice matches Audio 1.' : '.'}`
+        ? `She says, in ${lang}, looking at the camera, cheerfully and clearly: "${sanitizeComment(input.reply)}"${input.hasVoice ? ' — her voice matches Audio 1.' : '.'}`
         : `Her expression conveys the line: "${sanitizeComment(input.reply)}" (no lip movement required, no on-screen text).`,
     );
   }
