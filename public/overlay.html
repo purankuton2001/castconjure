@@ -199,7 +199,7 @@
       if (current) return;
       setMeta(m.job); meta.classList.add('on');
       if (showWait) wait.classList.add('on');
-      if (m.job.ackVoiceUrl && unmuted) { const a = $('ackAudio'); a.src = m.job.ackVoiceUrl; a.play().catch(() => {}); }
+      if (m.job.ackVoiceUrl && unmuted) { const a = $('ackAudio'); if (a.dataset.job !== m.job.id) { a.dataset.job = m.job.id; a.src = m.job.ackVoiceUrl; a.play().catch(() => {}); } }
     } else if (m.type === 'generating') {
       if (current) return;
       if (!showWait) return;

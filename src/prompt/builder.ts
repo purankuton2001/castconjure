@@ -11,6 +11,8 @@ export interface PromptInput {
   /** Director line: the concrete full-body action to show (defaults to acting out the comment). */
   action?: string;
   refCount: number;
+  /** Kinds of the reference images in order (Image 1, 2, …). Defaults to face, full, scene. */
+  refKinds?: ('face' | 'full' | 'scene')[];
   hasVoice: boolean;
 }
 
@@ -20,7 +22,9 @@ export function buildPrompt(input: PromptInput, s: Settings, persona: Persona | 
   if (world) parts.push(world);
 
   if (persona) {
-    const refs = input.refCount > 0 ? ` (appearance exactly as in Image 1${input.refCount > 1 ? `, outfit as in Image 2` : ''}${input.refCount > 2 ? `, setting as in Image 3` : ''})` : '';
+    const kinds = (input.refKinds ?? (['face', 'full', 'scene'] as const).slice(0, input.refCount)).slice(0, input.refCount);
+    const label = { face: 'appearance exactly as in Image', full: 'outfit as in Image', scene: 'setting as in Image' } as const;
+    const refs = kinds.length ? ` (${kinds.map((k, i) => `${label[k]} ${i + 1}`).join(', ')})` : '';
     parts.push(`The main character is "${persona.nameEn || persona.name}"${refs}: ${persona.appearance.summary}`.replace(/\.?$/, '.'));
     if (persona.appearance.signatures?.length) parts.push(`Always visible: ${persona.appearance.signatures.join(', ')}.`);
     parts.push(

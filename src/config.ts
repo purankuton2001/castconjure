@@ -34,8 +34,8 @@ export const secrets = {
   falPromptExpansion: env('FAL_PROMPT_EXPANSION', 'balanced'),
   /** Cache generated clips locally so OBS never hits an expired CDN URL (done in the background; playback starts from the CDN URL). */
   cacheClips: envBool('CACHE_CLIPS', true),
-  /** Use the synchronous fal.run endpoint instead of queue polling (one round trip less). */
-  falSync: envBool('FAL_SYNC', true),
+  /** Synchronous fal.run endpoint. Measured 7–10 s slower than the queue for H3 Max; off by default. */
+  falSync: envBool('FAL_SYNC', false),
   comfyUrl: env('COMFY_URL', 'http://127.0.0.1:8188'),
   comfyWorkflow: env('COMFY_WORKFLOW', path.join(ROOT, 'local', 'workflow.json')),
   youtubeUnitsPerPoll: envNum('YOUTUBE_UNITS_PER_POLL', 5),
@@ -86,6 +86,8 @@ export function defaultSettings(): Settings {
     replyMode: envBool('REPLY_MODE', false),
     idlePoolSize: envNum('IDLE_POOL_SIZE', 12),
     instantReply: envBool('INSTANT_REPLY', true),
+    refMode: (env('REF_MODE', 'face+scene') as Settings['refMode']) || 'face+scene',
+    voiceRef: envBool('VOICE_REF', true),
     minIntervalSec: envNum('MIN_INTERVAL_SEC', 30),
     userCooldownSec: envNum('USER_COOLDOWN_SEC', 120),
     commandPrefix: env('COMMAND_PREFIX', ''),
@@ -140,5 +142,7 @@ export function sanitizeSettings(s: Settings): Settings {
     replyMode: !!s.replyMode,
     idlePoolSize: clamp(s.idlePoolSize, 1, 60, 12),
     instantReply: s.instantReply !== false,
+    refMode: (['face', 'face+scene', 'all'] as const).includes(s.refMode) ? s.refMode : 'face+scene',
+    voiceRef: s.voiceRef !== false,
   };
 }

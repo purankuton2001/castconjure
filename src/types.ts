@@ -89,6 +89,10 @@ export interface Settings {
   idlePoolSize: number;
   /** Instant acknowledgement: show the reply subtitle (and speak it via TTS when audio is on) while the clip generates. */
   instantReply: boolean;
+  /** Which reference images to send (speed vs consistency): face ≈ 9 s, face+scene ≈ 10 s, all three ≈ 13 s with voice. */
+  refMode: 'face' | 'face+scene' | 'all';
+  /** Send the reference voice (voice consistency, ≈ +6 s). Off = H3 picks a voice per clip. */
+  voiceRef: boolean;
   /** Minimum seconds between two generations (global rate limit). */
   minIntervalSec: number;
   /** Seconds a single user must wait before another of their comments is taken. */

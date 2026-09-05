@@ -38,7 +38,7 @@ export class Pipeline {
   private logLines: { level: 'info' | 'warn' | 'error'; line: string; t: number }[] = [];
   private seq = 0;
   private persona: Persona | null = null;
-  private refCache?: { id: string; images: string[]; voice?: string; voices: Record<string, string | undefined>; stamp: string };
+  private refCache?: { id: string; images: string[]; kinds: ('face' | 'full' | 'scene')[]; voice?: string; voices: Record<string, string | undefined>; stamp: string };
   private idleJob?: { running: boolean; done: number; total: number; abort: AbortController };
 
   running = false;
@@ -105,9 +105,9 @@ export class Pipeline {
   }
 
   /** Reference data URIs, cached per persona + file mtimes. */
-  private refs(lang?: string): { images: string[]; voice?: string } {
+  private refs(lang?: string, forGeneration = true): { images: string[]; kinds: ('face' | 'full' | 'scene')[]; voice?: string } {
     const p = this.persona;
-    if (!p) return { images: [] };
+    if (!p) return { images: [], kinds: [] };
     const files = [p.references.face, p.references.full, p.references.scene, p.references.voice, ...Object.values(p.references.voices ?? {})].filter(Boolean) as string[];
     const stamp = files
       .map((f) => {
@@ -121,10 +121,15 @@ export class Pipeline {
     if (!this.refCache || this.refCache.id !== p.id || this.refCache.stamp !== stamp) {
       const voices: Record<string, string | undefined> = {};
       for (const l of Object.keys(p.references.voices ?? {})) voices[l] = referenceVoiceUri(p, l);
-      this.refCache = { id: p.id, images: referenceImageUris(p), voice: referenceVoiceUri(p), voices, stamp };
+      const kinds = (['face', 'full', 'scene'] as const).filter((k) => !!p.references[k]);
+      this.refCache = { id: p.id, images: referenceImageUris(p), kinds: [...kinds], voice: referenceVoiceUri(p), voices, stamp };
     }
-    const voice = (lang && this.refCache.voices[lang]) || this.refCache.voice;
-    return { images: this.refCache.images, voice };
+    const voice = forGeneration && !this.settings.voiceRef ? undefined : (lang && this.refCache.voices[lang]) || this.refCache.voice;
+    // speed vs consistency: which reference images go into this generation
+    const want = this.settings.refMode === 'face' ? ['face'] : this.settings.refMode === 'face+scene' ? ['face', 'scene'] : ['face', 'full', 'scene'];
+    const images: string[] = [], kinds: ('face' | 'full' | 'scene')[] = [];
+    this.refCache.kinds.forEach((k, i) => { if (!forGeneration || want.includes(k)) { images.push(this.refCache!.images[i]); kinds.push(k); } });
+    return { images, kinds, voice };
   }
 
   idlePoolMessage(): WsServerMessage {
@@ -159,10 +164,11 @@ export class Pipeline {
     try {
       for (let i = 0; i < count; i++) {
         if (abort.signal.aborted) break;
-        const prompt = buildIdlePrompt(i, this.settings, p, this.refs().images.length);
+        const prompt = buildIdlePrompt(i, this.settings, p, this.refs(undefined, false).images.length);
         const t0 = Date.now();
         try {
-          const res = await this.backend.generate(this.request(prompt, false), abort.signal);
+          const all = this.refs(undefined, false);
+          const res = await this.backend.generate({ prompt, durationSec: this.settings.durationSec, resolution: this.settings.resolution, referenceImageUrls: all.images, audio: false }, abort.signal);
           let file = '';
           if (res.kind === 'video') {
             file = `idle/${String(i + 1).padStart(2, '0')}.mp4`;
@@ -448,7 +454,7 @@ export class Pipeline {
     }
     const lang = job.reply ? detectLang(job.reply) : detectLang(job.message.text);
     const refs = this.refs(lang);
-    job.prompt = buildPrompt({ comment: job.message.text, reply: job.reply, action: job.action, refCount: refs.images.length, hasVoice: !!refs.voice }, s, this.persona);
+    job.prompt = buildPrompt({ comment: job.message.text, reply: job.reply, action: job.action, refCount: refs.images.length, refKinds: refs.kinds, hasVoice: !!refs.voice }, s, this.persona);
     // Instant acknowledgement (perceived latency): subtitle right now; TTS of the line runs in parallel with
     // generation and is pushed as a second 'ack' when ready. Generation is never delayed by it.
     if (s.instantReply && job.reply) {
@@ -470,7 +476,7 @@ export class Pipeline {
       }
     }
     const req = this.request(job.prompt, this.settings.audio, lang);
-    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, refImages: refs.images.length, voice: !!refs.voice && s.audio, lang, style: this.persona?.style ?? 'photoreal', estimateUsd: estimate, promptLen: job.prompt.length });
+    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, refImages: refs.images.length, refMode: s.refMode, voice: !!refs.voice && s.audio, lang, style: this.persona?.style ?? 'photoreal', estimateUsd: estimate, promptLen: job.prompt.length });
     if (!this.current) this.broadcast({ type: 'generating', job: this.toPublic(job) });
     this.pushState();
 
@@ -611,7 +617,7 @@ export class Pipeline {
         .map((j) => this.toPublic(j)),
       stats: { ...this.stats },
       youtube: this.adapter?.stats?.() as PublicState['youtube'],
-      persona: p ? { id: p.id, name: p.name, refs: r.images.length, voice: !!r.voice, idleClips: p.idle?.clips.length ?? 0, confirmed: !!p.references.confirmed } : undefined,
+      persona: p ? { id: p.id, name: p.name, refs: this.refs(undefined, false).images.length, voice: !!this.refs(undefined, false).voice, idleClips: p.idle?.clips.length ?? 0, confirmed: !!p.references.confirmed } : undefined,
       idleJob: this.idleJob ? { running: this.idleJob.running, done: this.idleJob.done, total: this.idleJob.total } : undefined,
     };
   }
