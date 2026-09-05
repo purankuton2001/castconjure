@@ -37,7 +37,7 @@
                                     NG words / real-person guard / rate / approval          "〇〇's comment" + subtitle + "AI generated"
 ```
 
-A viewer types *"dance!!"*. The persona — a face you generated ten minutes ago — answers *"taro_k, let's do it!"* and dances, on your stream, three seconds later. Someone in Seoul types *"언니 춤춰요"* and gets the same idol answering in Korean. Lip-sync avatars move a mouth; castconjure generates the whole shot: action, outfit, camera, scene.
+A viewer types *"dance!!"*. The persona — a face you generated ten minutes ago — answers *"taro_k, let's do it!"* and dances, on your stream, about four seconds later (measured: 4.0 s comment-to-screen on H3 Max Turbo). Someone in Seoul types *"언니 춤춰요"* and gets the same idol answering in Korean. Lip-sync avatars move a mouth; castconjure generates the whole shot: action, outfit, camera, scene.
 
 ## Puppet vs. actor
 
@@ -45,12 +45,12 @@ A viewer types *"dance!!"*. The persona — a face you generated ten minutes ago
 |---|---|---|---|
 | What moves | mouth and head | everything, no fixed persona | **the persona does what chat asks: dance, eat, cry, change outfit, change room** |
 | Camera | fixed webcam framing | generated | **generated: close-ups, pans, 35 mm look** |
-| Consistency | a rigged model | none | **3 reference images + reference voice (+ signatures)** |
+| Consistency | a rigged model | none | **fixed seed + the same descriptions + a frame of her idle loop as the first frame; 3 reference images + reference voice for the strict mode** |
 | To create one | modelling + rigging, weeks | — | **face gacha → 3 refs → voice → personality: ~10 minutes** |
-| Cost | GPU / subscription | 24/7 generation | **idle pool pre-generated, reaction clips ≈ $0.46 each, hard budget cap** |
+| Cost | GPU / subscription | 24/7 generation | **idle pool pre-generated, reaction clips ≈ $0.25 each (H3 Max Turbo), hard budget cap** |
 | Keys / data | theirs | theirs | **yours — `.env` never leaves the machine** |
 
-Two layers keep her "always there" without paying for continuous generation: a pre-generated **idle pool** loops underneath; a **reaction clip** is generated only when a comment is cast and crossfades on top.
+Two layers keep her "always there" without paying for continuous generation: a pre-generated **idle pool** loops underneath; a **reaction clip** is generated only when a comment is cast and crossfades on top. Each reaction starts from a frame of the idle loop (image-to-video), with a **fixed per-persona seed** and the same voice/appearance description every time — that is what keeps her face *and voice* the same across clips without sending reference audio (the trick behind [R24](https://news-live-iota.vercel.app/)).
 
 ## Quick start
 
@@ -135,7 +135,8 @@ English by default; `http://127.0.0.1:8787/?lang=ja` for Japanese (the overlay t
 |---|---|
 | **Persona** | select / create; **style** (photoreal / anime); face gacha → reference set → confirm; **voice per language** (EN / KO / JA); personality (name, fan name, appearance, signatures, tone, verbal tics, forbidden, reply system prompt); idle pool |
 | **World prompt** | the per-stream vibe, overriding the persona's default: *"rainy neon Tokyo rooftop"* |
-| **Reply mode** | an LLM answers each cast comment in one line (≤ 30 chars); it becomes her spoken line and the subtitle |
+| **Reply mode** | an LLM answers each cast comment in one line (≤ 30 chars); it becomes her spoken line and the subtitle. The subtitle shows instantly; the line is also spoken via TTS in her cloned voice while the clip generates |
+| **Reaction clip mode** | `i2v turbo` (default, ≈ 4 s, $0.25) · `i2v` (≈ 4 s) · `r2v` (reference images + reference voice, ≈ 10–13 s, $0.46) |
 | **Min interval / User cooldown** | one clip per N seconds; one per viewer per M seconds |
 | **Command prefix** | `!gen` — only prefixed comments count; empty = every comment |
 | **Approval mode** | nothing generates until you or a moderator says `!ok` (or click ✓) |
@@ -152,7 +153,7 @@ fal pricing for MiniMax H3 Max, checked 2026-09 (the launch discount ended Sept 
 | text-to-video 768p | $0.08 | $0.40 | ≈ $48 |
 | reference-to-video (character images) | $0.08 + $0.02 / image | $0.42 – 0.46 | ≈ $50 – 55 |
 
-With the persona's 3 reference images every reaction clip takes the reference-to-video route: **≈ $0.46** at 5 s. The **idle pool** (12 × 5 s ≈ $5.50, or $0 on the local backend) is generated once per persona and loops for free. Defaults: 480p, 5 s, 30 s interval, **$20 session cap**. Set a monthly cap on the fal dashboard too.
+Default route is **H3 Max Turbo image-to-video** from an idle frame: **≈ $0.25** per 5 s reaction clip, about 4 s comment-to-screen (queue ≈ 1.7 s + generation ≈ 2.5 s, measured 2026-09). The strict route (reference-to-video with 3 images + reference voice) is ≈ $0.46 and 10–13 s. The **idle pool** (12 × 5 s ≈ $5.50, or $0 on the local backend) is generated once per persona and loops for free. Defaults: 480p, 5 s, 30 s interval, **$20 session cap**. Set a monthly cap on the fal dashboard too.
 
 Every generation is logged with its estimated cost; the fal invoice is the source of truth.
 
@@ -190,7 +191,7 @@ These are defaults. Keep them.
 grep '"ev":"play_start"' data/logs/session-*.jsonl | jq -s 'map(.sinceReceivedMs) | sort | .[length/2|floor]'
 ```
 
-Target on the fal route: **under 15 s** comment-to-screen. H3 Max itself returns a 5-s clip in about 3 s; the rest is transfer and queueing.
+Measured on fal (2026-09): H3 Max Turbo i2v **4.0 s** comment-to-screen; H3 Max r2v with 3 references + reference voice 13 s; the synchronous `fal.run` endpoint was 7–10 s slower than the queue, so the queue is used.
 
 ## Local backend (ComfyUI)
 

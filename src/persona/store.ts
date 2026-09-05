@@ -58,6 +58,7 @@ export function createPersona(id: string, name: string): Persona {
     id,
     name,
     adult: true,
+    seed: Math.floor(Math.random() * 2 ** 31),
     appearance: { summary: '' },
     references: {},
     personality: { verbalTics: [], replyMaxChars: 30 },
@@ -70,6 +71,7 @@ function normalize(p: Persona): Persona {
   return {
     ...p,
     adult: true,
+    seed: Number.isFinite(p.seed) ? Math.floor(p.seed as number) : Math.floor(Math.random() * 2 ** 31),
     appearance: { ...(p.appearance ?? {}), summary: p.appearance?.summary ?? '' },
     references: { ...(p.references ?? {}) },
     personality: { verbalTics: [], replyMaxChars: 30, ...(p.personality ?? {}) },

@@ -125,8 +125,9 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
           const patch = body as Partial<Persona>;
           // references, idle and id are managed by the server; everything else is editable (F-12).
           const { references: _r, idle: _i, id: _id, ...editable } = patch;
-          const merged: Persona = { ...cur, ...editable, id: cur.id, references: cur.references, idle: cur.idle, adult: true, appearance: { ...cur.appearance, ...(patch.appearance ?? {}) }, personality: { ...cur.personality, ...(patch.personality ?? {}) } };
+          const merged: Persona = { ...cur, ...editable, id: cur.id, references: cur.references, idle: cur.idle, adult: true, appearance: { ...cur.appearance, ...(patch.appearance ?? {}) }, personality: { ...cur.personality, ...(patch.personality ?? {}) }, voice: { ...(cur.voice ?? {}), ...(patch.voice ?? {}) } };
           merged.style = merged.style === 'anime' ? 'anime' : 'photoreal';
+          merged.seed = Number.isFinite(Number(patch.seed)) && Number(patch.seed) >= 0 ? Math.floor(Number(patch.seed)) : cur.seed;
           const hit = ipHit({ name: merged.name, appearance: merged.appearance.summary, signatures: merged.appearance.signatures ?? [], worldPrompt: merged.worldPrompt ?? '', replySystemPrompt: merged.replySystemPrompt ?? '' });
           if (hit) return json(res, { error: `Real idols and existing characters can't be used (${hit}). Your own original character only.` }, 400);
           savePersona(merged);

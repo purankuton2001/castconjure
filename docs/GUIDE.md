@@ -74,6 +74,8 @@ npm start
 
 推しはフォルダ `data/personas/<id>/` に入る。コピーすれば別マシンで同じ推し。
 
+**反応クリップの方式**（Generation の Reaction clip mode）：既定は `i2v turbo`。待機ループの 1 フレームを起点に H3 Max Turbo で生成し、コメント → 画面が約 4 秒・1 本 $0.25。推しごとの**固定 seed**と毎回同じ声・見た目の説明文で、参照音声なしでも顔と声が揃う（Persona の Seed と Voice description）。声の一貫性を最優先するなら `r2v`（参照画像＋参照音声、約 10〜13 秒・$0.46）。
+
 **返事モード**（Generation セクションのチェック）：コメントごとに LLM が推しの一言（30 字以内）を返し、台詞としてプロンプトと字幕に使う。`.env` の `REPLY_PROVIDER`（mock / anthropic / gemini / openai）とキーが必要。返事も NG フィルタを通り、ブロックされたら口癖に置き換わる。
 
 ## 5. fal で本物の映像に

@@ -163,6 +163,10 @@
           <div><label data-i18n="name">Name</label><input type="text" id="pName" /></div>
           <div><label data-i18n="catchphrase">Catchphrase</label><input type="text" id="pCatch" /></div>
         </div>
+        <div class="row">
+          <div><label data-i18n="seed">Seed (fixed per persona — same seed + same descriptions keep her face and voice stable)</label><input type="number" id="pSeed" min="0" /></div>
+          <div><label data-i18n="voiceDesc">Voice description (English, goes into every prompt)</label><input type="text" id="pVoiceDesc" /></div>
+        </div>
         <label data-i18n="appearance">Appearance (English, goes into every prompt)</label><textarea id="pAppearance"></textarea>
         <label data-i18n="signatures">Signatures (comma separated, always visible — helps consistency)</label><input type="text" id="pSignatures" />
         <label data-i18n="worldDefault">Default world prompt (English)</label><textarea id="pWorld"></textarea>
@@ -259,7 +263,7 @@
     gachaPrompt: 'プロンプト（空なら推しの顔プロンプト）', draw4: '4 枚引く', voice: '声', voiceNote: '言語ごとに TTS で参照音声を生成（実在人物の声は使わない）。推しはコメントの言語で返し、その言語の声を使います。',
     voiceText: 'サンプル台詞（空なら言語ごとの既定）', personality: '人格', catchphrase: 'キャッチコピー', appearance: '見た目（英語、毎回プロンプトに入る）', signatures: 'シグネチャ（カンマ区切り、毎回必ず映す。一貫性の手がかり）',
     worldDefault: '既定の世界観プロンプト（英語）', tone: '話し方', tics: '口癖（カンマ区切り）', forbidden: '禁止事項（1 行 1 項目、英語。プロンプトの Never: に入る）', replySys: '返事モードのシステムプロンプト（空なら人格から自動生成）',
-    savePersona: '人格を保存', idlePool: '待機映像プール', count: '本数', generate: '生成する', cancel: '中止', platform: 'プラットフォーム', videoId: 'YouTube 動画 ID',
+    savePersona: '人格を保存', seed: 'Seed（推しごとに固定。同じ seed と同じ説明文で顔と声が揃う）', voiceDesc: '声の説明（英語、毎回プロンプトに入る）', idlePool: '待機映像プール', count: '本数', generate: '生成する', cancel: '中止', platform: 'プラットフォーム', videoId: 'YouTube 動画 ID',
     ytNote: 'YouTube: .env に YOUTUBE_API_KEY を入れ、配信を開始してから動画 ID を貼って Save → Start。', generation: '生成', resolution: '解像度', duration: '長さ（秒）', budget: 'セッション予算（USD）', maxQueue: 'キュー上限',
     audioOpt: '音声ありで生成（推しの台詞。overlay に ?audio=1）', genMode: '反応クリップの生成方式', genModeNote: 'i2v は待機ループのフレームから始めるので継ぎ目がなく 3 倍速い。参照音声は渡せないので、声はプロンプトの説明で寄せる。', refMode: '1 クリップに送る参照画像（速度 ↔ 一貫性）', voiceRefOpt: '参照音声を送る（毎回同じ声、約 +6 秒）', instantOpt: '即時返事（クリップ生成中に字幕と台詞音声を約 1 秒で出す）', badgeOpt: '「AI 生成」表記を出す', replyOpt: '返事モード（LLM が推しの一言をコメントの言語で返す。REPLY_PROVIDER）',
     world: '世界観プロンプト（配信ごと）', worldPh: '空なら推しの既定の世界観', selection: '選定と安全', minInterval: '最小間隔（秒）', cooldown: '同一ユーザー冷却（秒）', maxChars: 'コメント最大文字数',
@@ -389,6 +393,7 @@
     const voices = Object.assign({}, p.references.voices || {}); if (p.references.voice && !Object.values(voices).includes(p.references.voice)) voices.primary = p.references.voice;
     for (const [l, rel] of Object.entries(voices)) { const s = document.createElement('span'); s.className = 'muted'; s.textContent = l.toUpperCase(); const a = document.createElement('audio'); a.controls = true; a.src = refUrl(p, rel); vl.append(s, a); }
     $('pName').value = p.name || ''; $('pFanName').value = p.fanName || ''; $('pCatch').value = p.catchphrase || '';
+    $('pSeed').value = p.seed ?? ''; $('pVoiceDesc').value = (p.voice && p.voice.description) || '';
     $('pAppearance').value = p.appearance.summary || ''; $('pSignatures').value = (p.appearance.signatures || []).join(', ');
     $('pWorld').value = p.worldPrompt || ''; $('pTone').value = p.personality.tone || ''; $('pTics').value = (p.personality.verbalTics || []).join(', ');
     $('pForbidden').value = (p.forbidden || []).join('\n'); $('pReplySys').value = p.replySystemPrompt || '';
@@ -430,7 +435,8 @@
   }
   $('bPersonaSave').onclick = async () => {
     const patch = {
-      name: $('pName').value, fanName: $('pFanName').value, catchphrase: $('pCatch').value, style: $('pStyle').value,
+      name: $('pName').value, fanName: $('pFanName').value, catchphrase: $('pCatch').value, style: $('pStyle').value, seed: Number($('pSeed').value),
+      voice: { description: $('pVoiceDesc').value },
       appearance: { summary: $('pAppearance').value, signatures: $('pSignatures').value.split(',').map(x => x.trim()).filter(Boolean) },
       worldPrompt: $('pWorld').value,
       personality: { tone: $('pTone').value, verbalTics: $('pTics').value.split(',').map(x => x.trim()).filter(Boolean) },
