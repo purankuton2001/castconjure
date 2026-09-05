@@ -513,17 +513,17 @@ export class Pipeline {
       const result = await this.backend.generate(req, ac.signal);
       job.genDoneAt = Date.now();
       job.result = result;
-      job.status = 'ready';
-      // Serve the clip same-origin right away (/clips/<job>.mp4 proxies the CDN until the cache lands):
-      // cross-origin video does not render in headless recordings, and same-origin is safer for OBS too.
+      // Cache first (≈1 s for a 5 s clip), then play from the local file: the CDN proxy stream stalled
+      // mid-clip in testing (video never fired "ended"). The proxy stays as a fallback if the download fails.
       if (result.kind === 'video' && result.backend === 'fal' && secrets.cacheClips) {
         const remote = result.clipUrl;
         this.remoteClips.set(job.id, remote);
+        const tCache = Date.now();
+        const local = await this.cacheClip(job.id, remote);
+        this.metrics.log('clip_cached', { job: job.id, local, cacheMs: Date.now() - tCache, proxied: local === remote });
         job.localUrl = `/clips/${job.id}.mp4`;
-        void this.cacheClip(job.id, remote).then((local) => {
-          if (local !== remote) this.metrics.log('clip_cached', { job: job.id, local });
-        });
       }
+      job.status = 'ready';
       this.spentUsd += result.costUsd;
       this.stats.generated++;
       this.metrics.log('gen_done', {
