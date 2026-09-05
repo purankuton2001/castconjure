@@ -16,7 +16,8 @@
     "test": "node --import tsx --test test/*.test.ts",
     "gen:once": "tsx src/cli/gen-once.ts",
     "probe": "tsx src/cli/probe.ts",
-    "probe:voice": "tsx src/cli/probe-voice.ts"
+    "probe:voice": "tsx src/cli/probe-voice.ts",
+    "idle": "tsx src/cli/idle-pool.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
