@@ -86,8 +86,8 @@ test('reply mock + default system prompt', async () => {
   assert.match(r.text, /^taroさん、/);
   assert.match(r.action, /dances energetically/);
   assert.match(directAction('what is this'), /acts out the request/);
-  assert.equal((await generateReply({ persona, author: 'mika', comment: 'dance!!' })).text, "mika, let's do it!");
-  assert.equal((await generateReply({ persona, author: 'yujin', comment: '춤춰줘' })).text, 'yujin, 해보자!');
+  assert.equal((await generateReply({ persona, author: 'mika', comment: 'dance!!' }, undefined, 'mock')).text, "mika, let's do it!");
+  assert.equal((await generateReply({ persona, author: 'yujin', comment: '춤춰줘' }, undefined, 'mock')).text, 'yujin, 해보자!');
   assert.ok([...r.text].length <= 30);
   assert.match(defaultSystemPrompt(persona), /白詰 ゆい/);
 });
