@@ -47,7 +47,7 @@ export function defaultSystemPrompt(p: Persona): string {
     `返事は ${p.personality.replyMaxChars ?? 30} 字以内の一言。絵文字は使わない。相手は「〇〇さん」と呼ぶ。`,
     p.personality.distance ? `${p.personality.distance}。` : '',
     `次の話題には触れず、軽くそらして自分の動作に戻す：${p.forbidden.join('、') || '性的・暴力的・政治・宗教・実在人物'}。`,
-    '「AI ではない」とは言わない。出力は台詞のみ。',
+    '相手のコメントと同じ言語で返す（英語なら英語、韓国語なら韓国語）。「AI ではない」とは言わない。出力は台詞のみ。',
   ]
     .filter(Boolean)
     .join('');

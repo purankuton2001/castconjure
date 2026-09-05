@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="docs/demo.gif" alt="castconjure — a viewer comment becomes a 5-second clip on the stream" width="820">
+  <img src="docs/demo.gif" alt="castconjure — chat says dance, the generated persona dances" width="820">
 </p>
 
 <h1 align="center">castconjure</h1>
 
 <p align="center">
-  <b>Photoreal AI VTubers, generated — not lip-synced.</b><br>
-  Conjure a face once. Your fans' comments make her dance, eat, talk and change scenes, live on your stream.<br>
-  Open source, bring your own key, one OBS browser source.
+  <b>Photoreal AI VTubers. Generated, not lip-synced.</b><br>
+  Conjure a face once. Your chat makes her dance, eat, talk and change scenes — live, in any language your fans speak.<br>
+  Built for the K-pop / anime fandom era: one idol, a global chat, no modelling, no rigging. Open source, bring your own key.
 </p>
 
 <p align="center">
@@ -37,7 +37,7 @@
                                     NG words / real-person guard / rate / approval          "〇〇's comment" + subtitle + "AI generated"
 ```
 
-A viewer types *"踊って"*. The persona — a face you generated ten minutes ago — answers *"taroさん、やってみよ！"* and dances, on your stream, three seconds later. Lip-sync avatars move a mouth; castconjure generates the whole shot: action, outfit, camera, scene.
+A viewer types *"dance!!"*. The persona — a face you generated ten minutes ago — answers *"taro_k, let's do it!"* and dances, on your stream, three seconds later. Someone in Seoul types *"언니 춤춰요"* and gets the same idol answering in Korean. Lip-sync avatars move a mouth; castconjure generates the whole shot: action, outfit, camera, scene.
 
 ## Puppet vs. actor
 
@@ -108,7 +108,7 @@ personas/     shirotsume-yui/persona.json   bundled persona template (seeded int
 public/       overlay.html  two layers: idle loop (two <video>s crossfading) + reaction clip with subtitle
 ```
 
-Every layer is an interface. Twitch is one adapter file. Another model is one backend file. A persona is a folder you can copy to another machine. Nothing in the pipeline knows it's for 推し活 — the same engine could front live commerce or a classroom.
+Every layer is an interface. Twitch is one adapter file. Another model is one backend file. A persona is a folder you can copy to another machine. The reply LLM answers in the commenter's language, so one persona serves an English, Korean and Japanese chat at once. Nothing in the pipeline knows it's for fandom — the same engine could front live commerce or a classroom.
 
 ### Overlay
 
@@ -230,7 +230,7 @@ MIT. Generation costs are billed to *your* fal account; this project neither pay
 
 ## 日本語
 
-**誰でも 10 分でフォトリアルな AI VTuber（推し）を作り、リップシンクではなく映像そのものを生成して配信に載せる OSS。**
+**誰でも 10 分でフォトリアルな AI VTuber（推し）を作り、リップシンクではなく映像そのものを生成して配信に載せる OSS。** 主戦場は英語圏・韓国語圏の K-pop／アニメ系ファンダムで、日本語はここに要点だけ。詳しくは上の英語版と [docs/GUIDE.md](docs/GUIDE.md)。
 
 - **人形ではなく俳優**：口パクではなく、踊る・食べる・喋る・場所を変える。動作・衣装・カメラが毎クリップ変わる
 - **顔はアプリ内で生成したものだけ**：写真アップロードはない。架空の成人、実在人物に似せない指示が常に付く
