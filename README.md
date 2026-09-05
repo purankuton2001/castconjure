@@ -81,8 +81,9 @@ Start your stream, paste the video ID into the panel, press Start. Chat is live.
 Smoke-test one clip without streaming (5 free generations/day on fal when signed in), or run the week-1 consistency probe (N clips + an HTML contact sheet to rate face consistency 1–5):
 
 ```bash
-npm run gen:once -- "手を振って"
-npm run probe -- --n 20
+npm run gen:once -- "wave and say hi"
+npm run probe -- --n 20          # face consistency: N clips + HTML contact sheet to rate 1–5
+npm run probe:voice -- --langs en,ko,ja   # does she speak the line in her reference voice, per language?
 ```
 
 ## How it works
@@ -96,6 +97,7 @@ src/
   chat/       ChatAdapter   youtube.ts   videos.list → liveChatMessages.list, honours pollingIntervalMillis
                             manual.ts    inject from the panel (testing, or hand-curated streams)
   filter/     ngfilter.ts   blocklist (ja/en) + real-person heuristics; blocked = silent, never taunt
+              ipguard.ts    F-16 real idols, groups, anime/game characters & titles, "look like X", choreo requests
               selector.ts   command prefix, global rate limit, per-user cooldown
   prompt/     builder.ts    world (per stream → persona default) + persona (Image 1/2/3, Audio 1) + comment + reply
   backend/    GenerateBackend   fal.ts   H3 Max via fal queue REST (text-to-video / reference-to-video + reference audio)
@@ -127,11 +129,11 @@ Shows: the idle loop, the reaction clip on top, **who cast it** (`〇〇さん�
 
 ### Panel
 
-Everything below is live-editable mid-stream and persisted to `data/settings.json`.
+English by default; `http://127.0.0.1:8787/?lang=ja` for Japanese (the overlay takes `?lang=ja` too). Everything below is live-editable mid-stream and persisted to `data/settings.json`.
 
 | | |
 |---|---|
-| **Persona** | select / create; face gacha → reference set → confirm; voice; personality (name, fan name, appearance, signatures, tone, verbal tics, forbidden, reply system prompt); idle pool |
+| **Persona** | select / create; **style** (photoreal / anime); face gacha → reference set → confirm; **voice per language** (EN / KO / JA); personality (name, fan name, appearance, signatures, tone, verbal tics, forbidden, reply system prompt); idle pool |
 | **World prompt** | the per-stream vibe, overriding the persona's default: *"rainy neon Tokyo rooftop"* |
 | **Reply mode** | an LLM answers each cast comment in one line (≤ 30 chars); it becomes her spoken line and the subtitle |
 | **Min interval / User cooldown** | one clip per N seconds; one per viewer per M seconds |
@@ -158,13 +160,15 @@ Every generation is logged with its estimated cost; the fal invoice is the sourc
 
 These are defaults. Keep them.
 
-1. **Faces are generated in-app only.** There is no upload. Every face prompt carries a fixed suffix: fictional adult, not resembling any real celebrity. Don't work around it with `.env` paths unless the image is one you generated yourself.
-2. **No real people in comments either.** Names, honorifics (〇〇さん / ちゃん / くん), `@mentions`, "Firstname Lastname", titles (president, idol…) are dropped unconditionally. False positives are accepted; blocked comments get *no* on-screen reaction.
-3. **Adults only.** The persona is an adult by definition; childlike appearance or behaviour is on the forbidden list.
-4. **Voice is TTS.** Never cloned from a real person.
-5. **Sexual / violent content** is double-filtered: the bundled list (`data/ng-words.txt`) plus the model's safety checker. Reply lines go through the same filter.
-6. **The owner is in charge.** On/off, world, rate, approval, reply mode — viewers cannot paint on your screen without you.
-7. **AI is disclosed.** The badge is on by default; label the stream as synthetic content on YouTube.
+1. **Your own original character only.** Faces are generated in-app — there is no upload — and every face prompt carries a fixed suffix: fictional adult, not resembling any real idol or existing character. castconjure is not a way to make a real idol dance for you, and not a replacement for one: it's *your* OC.
+2. **Real idols and existing IP are blocked everywhere (F-16).** Comments, reply lines, persona text and gacha prompts that name a real idol, group, anime/game character or title — or ask for "look like X", "cosplay as X", "do X's choreo" — are dropped silently. The bundled list (`data/ip-names.txt`, EN/KO/JA) is deliberately broad; add your own in *Extra NG words*.
+3. **No real people in comments either.** Names, honorifics (〇〇さん / ちゃん / くん), `@mentions`, "Firstname Lastname", titles (president, idol…) are dropped unconditionally. False positives are accepted; blocked comments get *no* on-screen reaction.
+4. **No real music, no real choreography.** Her dance is *a* dance, never a cover.
+5. **Adults only.** The persona is an adult by definition, in both styles; childlike appearance or behaviour is on the forbidden list.
+6. **Voice is TTS.** Never cloned from a real person.
+7. **Sexual / violent content** is double-filtered: the bundled list (`data/ng-words.txt`) plus the model's safety checker. Reply lines go through the same filter.
+8. **The owner is in charge.** On/off, world, rate, approval, reply mode — viewers cannot paint on your screen without you.
+9. **AI is disclosed.** The badge is on by default; label the stream as synthetic content on YouTube / Twitch.
 
 ## Metrics
 
@@ -201,7 +205,8 @@ The output node must write mp4/webm (e.g. `VHS_VideoCombine`).
 - [x] YouTube Live (API key), fal H3 Max, local ComfyUI, mock
 - [x] NG filter, real-person guard, approval mode, budget cap, JSONL metrics
 - [x] Persona: face gacha, reference set, TTS voice, personality, idle pool, reply mode, two-layer overlay
-- [ ] Week-1 probe: face consistency with 3 refs; spoken lines + reference voice through fal H3 Max
+- [x] Own-OC-only guard (real idols / existing IP / likeness / choreo), English UI with `?lang=ja`, anime style preset, per-language reference voices
+- [ ] Week-1 probe: face consistency with 3 refs; spoken lines + reference voice through fal H3 Max (EN / KO / JA)
 - [ ] Demo streams #1–#3 with 白詰ゆい on [purankuton2001](https://www.youtube.com/@purankuton2001), published latency/cost logs
 - [ ] Gift → directing rights (outfit change, scene change, close-up)
 - [ ] Twitch adapter

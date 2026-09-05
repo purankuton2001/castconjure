@@ -1,0 +1,396 @@
+# castconjure F-16: real idols, groups, existing anime/game characters and titles, VTubers.
+# Comments (and reply lines, persona text, gacha prompts) that mention any of these are dropped silently.
+# One entry per line, "#" starts a comment. Latin entries match on word boundaries (case-insensitive);
+# CJK entries match as substrings. The streamer adds more in the config UI (Extra NG words).
+# This list is deliberately incomplete — it catches the names a fandom chat will actually type.
+
+## K-pop groups
+BTS
+방탄소년단
+防弾少年団
+BLACKPINK
+블랙핑크
+TWICE
+트와이스
+NewJeans
+뉴진스
+IVE
+아이브
+aespa
+에스파
+LE SSERAFIM
+르세라핌
+Stray Kids
+스트레이 키즈
+SEVENTEEN
+세븐틴
+NCT
+EXO
+엑소
+Red Velvet
+레드벨벳
+ITZY
+있지
+(G)I-DLE
+여자아이들
+ENHYPEN
+엔하이픈
+TXT
+Tomorrow X Together
+투모로우바이투게더
+ATEEZ
+에이티즈
+BABYMONSTER
+베이비몬스터
+ILLIT
+아일릿
+KISS OF LIFE
+RIIZE
+라이즈
+ZEROBASEONE
+제로베이스원
+BOYNEXTDOOR
+보이넥스트도어
+TREASURE
+트레저
+NMIXX
+엔믹스
+STAYC
+스테이씨
+Kep1er
+케플러
+fromis_9
+프로미스나인
+MAMAMOO
+마마무
+Girls' Generation
+소녀시대
+少女時代
+SHINee
+샤이니
+BIGBANG
+빅뱅
+2NE1
+투애니원
+Super Junior
+슈퍼주니어
+TVXQ
+동방신기
+東方神起
+MONSTA X
+몬스타엑스
+GOT7
+갓세븐
+Wanna One
+워너원
+PLAVE
+플레이브
+MAVE
+naevis
+나이비스
+## K-pop idols / soloists
+Jungkook
+정국
+Jimin
+지민
+Taehyung
+태형
+Jennie
+제니
+Lisa
+리사
+Jisoo
+지수
+Rosé
+로제
+IU
+아이유
+Taeyeon
+태연
+G-Dragon
+지드래곤
+Hanni
+하니
+Minji
+민지
+Danielle
+다니엘
+Haerin
+해린
+Hyein
+혜인
+Karina
+카리나
+Winter
+윈터
+Wonyoung
+원영
+Jang Wonyoung
+장원영
+Yujin
+안유진
+Sakura
+사쿠라
+Kazuha
+카즈하
+Chaewon
+채원
+Nayeon
+나연
+Sana
+사나
+Momo
+모모
+Tzuyu
+쯔위
+Felix
+필릭스
+Hyunjin
+현진
+Bang Chan
+방찬
+Mingyu
+민규
+Wonwoo
+원우
+Cha Eun-woo
+차은우
+Sunghoon
+성훈
+Jay Park
+박재범
+Zico
+지코
+## Western / global pop
+Taylor Swift
+Ariana Grande
+Billie Eilish
+Olivia Rodrigo
+Sabrina Carpenter
+Dua Lipa
+Beyoncé
+Rihanna
+Lady Gaga
+Justin Bieber
+Harry Styles
+The Weeknd
+Drake
+Bad Bunny
+Kanye
+Travis Scott
+Ice Spice
+Doja Cat
+## J-pop / Japanese
+YOASOBI
+Ado
+米津玄師
+Kenshi Yonezu
+藤井風
+Fujii Kaze
+King Gnu
+Mrs. GREEN APPLE
+星野源
+あいみょん
+Aimyon
+乃木坂46
+Nogizaka46
+櫻坂46
+日向坂46
+AKB48
+Perfume
+LiSA
+Snow Man
+SixTONES
+嵐
+Arashi
+## VTubers / agencies
+Hololive
+ホロライブ
+Nijisanji
+にじさんじ
+Gawr Gura
+がうる・ぐら
+Mori Calliope
+Hakos Baelz
+Houshou Marine
+宝鐘マリン
+Usada Pekora
+兎田ぺこら
+Shirakami Fubuki
+白上フブキ
+Minato Aqua
+湊あくあ
+Kizuna AI
+キズナアイ
+Neuro-sama
+Ironmouse
+Filian
+Kson
+Kuzuha
+葛葉
+Kanae
+叶
+Vox Akuma
+Salome
+壱百満天原サロメ
+Isegye Idol
+이세계아이돌
+## Anime / game characters
+Hatsune Miku
+初音ミク
+Nezuko
+禰豆子
+Tanjiro
+炭治郎
+Gojo
+五条悟
+Naruto
+ナルト
+Sasuke
+Goku
+悟空
+Vegeta
+Luffy
+ルフィ
+Zoro
+Nami
+Sailor Moon
+セーラームーン
+Asuka
+アスカ
+Rei Ayanami
+綾波レイ
+Marin Kitagawa
+喜多川海夢
+Frieren
+フリーレン
+Anya
+アーニャ
+Yor Forger
+ヨル
+Makima
+マキマ
+Power
+Zero Two
+ゼロツー
+Rem
+レム
+Emilia
+エミリア
+Mikasa
+ミカサ
+Levi
+リヴァイ
+Eren
+エレン
+Bocchi
+ぼっち
+Nino
+Miku Nakano
+中野三玖
+Chika Fujiwara
+藤原千花
+Kaguya
+かぐや
+Mai Sakurajima
+桜島麻衣
+Raiden Shogun
+雷電将軍
+Ganyu
+甘雨
+Hu Tao
+胡桃
+Furina
+フリーナ
+Firefly
+Kafka
+2B
+Tifa
+ティファ
+Aerith
+エアリス
+Lara Croft
+Jinx
+Ahri
+アリ
+Princess Peach
+ピーチ姫
+Zelda
+ゼルダ
+Pikachu
+ピカチュウ
+Chun-Li
+春麗
+Ryu
+Nagatoro
+長瀞
+Uzaki
+宇崎
+Elaina
+イレイナ
+Aqua
+アクア
+Megumin
+めぐみん
+## Anime / game titles
+Demon Slayer
+鬼滅の刃
+Jujutsu Kaisen
+呪術廻戦
+One Piece
+ワンピース
+Naruto
+Dragon Ball
+ドラゴンボール
+Attack on Titan
+進撃の巨人
+Evangelion
+エヴァンゲリオン
+Chainsaw Man
+チェンソーマン
+Spy x Family
+スパイファミリー
+Frieren
+Oshi no Ko
+推しの子
+Bocchi the Rock
+ぼっち・ざ・ろっく
+My Hero Academia
+僕のヒーローアカデミア
+Genshin
+原神
+Honkai
+崩壊
+Blue Archive
+ブルーアーカイブ
+Fate/Grand Order
+FGO
+Love Live
+ラブライブ
+Idolmaster
+アイドルマスター
+アイマス
+Uma Musume
+ウマ娘
+Pokémon
+Pokemon
+ポケモン
+Zelda
+ゼルダ
+Final Fantasy
+ファイナルファンタジー
+Nier
+ニーア
+Persona 5
+ペルソナ5
+Sailor Moon
+Re:Zero
+リゼロ
+Konosuba
+このすば
+Kaguya-sama
+かぐや様
+Rascal Does Not Dream
+青春ブタ野郎
+Vocaloid
+ボーカロイド

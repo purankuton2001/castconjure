@@ -10,7 +10,13 @@ import { personaDir } from './store.js';
  * Every prompt carries a fixed safety suffix: fictional adult, not resembling any real person.
  */
 export const FACE_SAFETY_SUFFIX =
-  'fictional person who does not exist, adult woman in her early twenties, not resembling any real celebrity or public figure, photoreal, natural skin texture, no text, no watermark';
+  'fictional person who does not exist, adult woman in her early twenties, not resembling any real celebrity, idol or public figure, not a character from any existing anime, game or franchise, no text, no watermark';
+
+/** Style presets (F-10): the look of the face gacha and, via the prompt builder, of every clip. */
+export const STYLE_SUFFIX: Record<'photoreal' | 'anime', string> = {
+  photoreal: 'photoreal, natural skin texture, no makeup retouching, 35mm photo',
+  anime: 'anime style illustration, clean cel shading, soft lighting, original character design, adult proportions',
+};
 
 export interface ImageGen {
   readonly name: 'fal' | 'mock';

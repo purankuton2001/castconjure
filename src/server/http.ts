@@ -3,9 +3,10 @@ import http from 'node:http';
 import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { CLIPS_DIR, PERSONAS_DIR, ROOT, saveSettings, sanitizeSettings } from '../config.js';
-import { FACE_SAFETY_SUFFIX, adoptCandidate, createImageGen, gachaDir, saveCandidate, saveRef } from '../persona/facegen.js';
+import { FACE_SAFETY_SUFFIX, STYLE_SUFFIX, adoptCandidate, createImageGen, gachaDir, saveCandidate, saveRef } from '../persona/facegen.js';
+import { IpGuard } from '../filter/ipguard.js';
 import { createPersona, fileDataUri, listPersonas, loadPersona, savePersona } from '../persona/store.js';
-import { generateVoice } from '../persona/voice.js';
+import { VOICE_SAMPLES, generateVoice } from '../persona/voice.js';
 import type { Pipeline } from '../queue/pipeline.js';
 import type { Persona, Settings, WsServerMessage } from '../types.js';
 
@@ -24,6 +25,18 @@ const MIME: Record<string, string> = {
   '.mp3': 'audio/mpeg',
   '.svg': 'image/svg+xml',
 };
+
+const ipGuard = new IpGuard();
+
+/** F-16 on the generation side: persona text and gacha prompts must not name real idols or existing IP. */
+function ipHit(fields: Record<string, unknown>): string | null {
+  for (const [k, v] of Object.entries(fields)) {
+    const text = Array.isArray(v) ? v.join(' ') : typeof v === 'string' ? v : '';
+    const m = text && ipGuard.match(text);
+    if (m) return `${k}: "${m}"`;
+  }
+  return null;
+}
 
 export function createServer(pipeline: Pipeline, port: number): http.Server {
   const server = http.createServer(async (req, res) => {
@@ -107,6 +120,9 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
           // references, idle and id are managed by the server; everything else is editable (F-12).
           const { references: _r, idle: _i, id: _id, ...editable } = patch;
           const merged: Persona = { ...cur, ...editable, id: cur.id, references: cur.references, idle: cur.idle, adult: true, appearance: { ...cur.appearance, ...(patch.appearance ?? {}) }, personality: { ...cur.personality, ...(patch.personality ?? {}) } };
+          merged.style = merged.style === 'anime' ? 'anime' : 'photoreal';
+          const hit = ipHit({ name: merged.name, appearance: merged.appearance.summary, signatures: merged.appearance.signatures ?? [], worldPrompt: merged.worldPrompt ?? '', replySystemPrompt: merged.replySystemPrompt ?? '' });
+          if (hit) return json(res, { error: `Real idols and existing characters can't be used (${hit}). Your own original character only.` }, 400);
           savePersona(merged);
           pipeline.reloadPersona();
           pipeline.metrics.log('persona_saved', { persona: cur.id });
@@ -117,7 +133,10 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
           const gen = createImageGen();
           const count = Math.max(1, Math.min(8, Number(body.count ?? 4)));
           const base = String(body.prompt ?? '').trim() || cur?.referencePrompts?.face || cur?.appearance.summary || 'portrait of a friendly young woman';
-          const prompt = `${base}. ${cur?.referencePrompts?.suffix ?? ''} ${FACE_SAFETY_SUFFIX}`.replace(/\s+/g, ' ');
+          const hit = ipHit({ prompt: base });
+          if (hit) return json(res, { error: `Real idols and existing characters can't be used (${hit}). Describe your own original character.` }, 400);
+          const style = STYLE_SUFFIX[cur?.style === 'anime' ? 'anime' : 'photoreal'];
+          const prompt = `${base}. ${cur?.referencePrompts?.suffix ?? ''} ${style}, ${FACE_SAFETY_SUFFIX}`.replace(/\s+/g, ' ');
           const out: { file: string; url: string; seed: number }[] = [];
           let cost = 0;
           for (let i = 0; i < count; i++) {
@@ -137,7 +156,7 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
           const gen = createImageGen();
           const faceRel = adoptCandidate(cur.id, candidate);
           const faceUri = fileDataUri(cur.id, faceRel)!;
-          const suffix = `${cur.referencePrompts?.suffix ?? ''} ${FACE_SAFETY_SUFFIX}`;
+          const suffix = `${cur.referencePrompts?.suffix ?? ''} ${STYLE_SUFFIX[cur.style === 'anime' ? 'anime' : 'photoreal']}, ${FACE_SAFETY_SUFFIX}`;
           const fullPrompt = `Full-body photo of the same person as in the input image, identical face and hair. ${cur.referencePrompts?.full ?? cur.appearance.defaultOutfit ?? ''}. ${suffix}`;
           const scenePrompt = `The same person as in the input image, identical face and hair, ${cur.referencePrompts?.scene ?? cur.appearance.defaultScene ?? 'in her room'}. ${suffix}`;
           let cost = 0;
@@ -164,14 +183,16 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
         if (p === '/api/persona/voice') {
           const cur = pipeline.activePersona;
           if (!cur) return json(res, { error: 'no persona' }, 400);
-          const text = String(body.text ?? '').trim() || cur.voice?.sampleLine || `こんにちは、${cur.name}です。今日もよろしくね。`;
-          const r = await generateVoice(cur.id, text, cur.voice?.description);
-          cur.references.voice = r.rel;
-          cur.voice = { ...(cur.voice ?? {}), sampleLine: text };
+          const lang = ['en', 'ko', 'ja'].includes(String(body.lang)) ? String(body.lang) : 'ja';
+          const text = String(body.text ?? '').trim() || (lang === 'ja' && cur.voice?.sampleLine) || VOICE_SAMPLES[lang];
+          const r = await generateVoice(cur.id, text, cur.voice?.description, lang);
+          cur.references.voices = { ...(cur.references.voices ?? {}), [lang]: r.rel };
+          if (!cur.references.voice || lang === 'ja') cur.references.voice = r.rel;
+          if (lang === 'ja') cur.voice = { ...(cur.voice ?? {}), sampleLine: text };
           savePersona(cur);
           pipeline.reloadPersona();
-          pipeline.metrics.log('voice_generated', { persona: cur.id, backend: r.backend, costUsd: r.costUsd });
-          return json(res, { persona: pipeline.activePersona, costUsd: r.costUsd, backend: r.backend });
+          pipeline.metrics.log('voice_generated', { persona: cur.id, backend: r.backend, costUsd: r.costUsd, lang });
+          return json(res, { persona: pipeline.activePersona, costUsd: r.costUsd, backend: r.backend, lang });
         }
         if (p === '/api/persona/idle') {
           if (body.action === 'cancel') {

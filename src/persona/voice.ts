@@ -10,13 +10,27 @@ import { personaDir } from './store.js';
  * fal TTS models differ in schema; FAL_TTS_EXTRA (JSON) is merged into the request, and the first
  * audio URL found in the response is used.
  */
-export async function generateVoice(personaId: string, text: string, description?: string): Promise<{ rel: string; costUsd: number; backend: 'fal' | 'mock' }> {
+export const VOICE_SAMPLES: Record<string, string> = {
+  en: "Hey! Thanks for coming. Say it in chat and I'll try it — if it goes wrong, we laugh.",
+  ko: '안녕! 와줘서 고마워. 채팅에 적어주면 해볼게. 안 되면 같이 웃자.',
+  ja: 'えー、待って、ほんとに？ じゃあやってみよ！ うまくいかなかったら笑って。',
+};
+
+/** Language of a line by script: Hangul → ko, kana/kanji → ja, else en. Used to pick the reference voice. */
+export function detectLang(text: string): 'en' | 'ko' | 'ja' {
+  if (/[\uac00-\ud7a3]/.test(text)) return 'ko';
+  if (/[\u3040-\u30ff\u4e00-\u9fff]/.test(text)) return 'ja';
+  return 'en';
+}
+
+export async function generateVoice(personaId: string, text: string, description?: string, lang = 'ja'): Promise<{ rel: string; costUsd: number; backend: 'fal' | 'mock' }> {
   const dir = personaDir(personaId);
   fs.mkdirSync(dir, { recursive: true });
   const useFal = secrets.personaImages === 'fal' || (secrets.personaImages === 'auto' && !!secrets.falKey);
   if (!useFal) {
-    fs.writeFileSync(path.join(dir, 'voice.wav'), mockVoiceWav());
-    return { rel: 'voice.wav', costUsd: 0, backend: 'mock' };
+    const rel = `voice.${lang}.wav`;
+    fs.writeFileSync(path.join(dir, rel), mockVoiceWav());
+    return { rel, costUsd: 0, backend: 'mock' };
   }
   let extra: Record<string, unknown> = {};
   try {
@@ -31,7 +45,7 @@ export async function generateVoice(personaId: string, text: string, description
   if (!res.ok) throw new Error(`voice download ${res.status}`);
   const ct = res.headers.get('content-type') ?? '';
   const ext = ct.includes('wav') ? 'wav' : ct.includes('mpeg') || url.endsWith('.mp3') ? 'mp3' : 'wav';
-  const rel = `voice.${ext}`;
+  const rel = `voice.${lang}.${ext}`;
   fs.writeFileSync(path.join(dir, rel), Buffer.from(await res.arrayBuffer()));
   return { rel, costUsd: personaPricing.ttsPerCall, backend: 'fal' };
 }

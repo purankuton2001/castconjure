@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,16 +7,20 @@
 <style>
   :root { --bg:#0f1117; --panel:#171a23; --line:#262a36; --fg:#e8e9ee; --mut:#8b90a0; --acc:#7c5cff; --ok:#3ecf8e; --warn:#f5a623; --err:#ff5c6c; }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font: 14px/1.5 system-ui, "Hiragino Sans", sans-serif; }
+  body { margin:0; background:var(--bg); color:var(--fg); font: 14px/1.5 system-ui, "Hiragino Sans", "Noto Sans JP", "Noto Sans KR", sans-serif; }
   header { display:flex; align-items:center; gap:16px; padding:14px 20px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:2; }
   header h1 { font-size:18px; margin:0; letter-spacing:.02em; }
   header .st { display:flex; gap:10px; align-items:center; flex-wrap:wrap; color:var(--mut); }
+  header .lang { margin-left:auto; font-size:12px; }
+  header .lang a { color:var(--mut); text-decoration:none; padding:2px 6px; border-radius:4px; }
+  header .lang a.on { color:var(--fg); background:#232736; }
   .dot { width:9px; height:9px; border-radius:50%; background:var(--mut); display:inline-block; margin-right:4px; }
   .dot.on { background:var(--ok); } .dot.warn { background:var(--warn); } .dot.err { background:var(--err); }
   main { display:grid; grid-template-columns: 1.1fr .9fr; gap:16px; padding:16px 20px; max-width:1400px; margin:0 auto; }
   @media (max-width: 900px) { main { grid-template-columns:1fr; } }
   section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
   h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:0 0 10px; }
+  h3 { font-size:13px; margin:14px 0 4px; color:var(--fg); }
   label { display:block; font-size:12px; color:var(--mut); margin:8px 0 3px; }
   input[type=text], input[type=number], textarea, select { width:100%; background:#0c0e14; border:1px solid var(--line); color:var(--fg); border-radius:6px; padding:7px 9px; font:inherit; }
   textarea { min-height:70px; resize:vertical; }
@@ -54,7 +58,8 @@
   .gacha img { width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:6px; border:2px solid transparent; cursor:pointer; }
   .gacha img:hover { border-color:var(--acc); }
   .stars button { padding:2px 6px; font-size:12px; }
-  h3 { font-size:13px; margin:14px 0 4px; color:var(--fg); }
+  .voices { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .voices audio { height:28px; width:150px; }
 </style>
 </head>
 <body>
@@ -63,160 +68,168 @@
   <div class="st">
     <span><i class="dot" id="dRun"></i><span id="tRun">stopped</span></span>
     <span><i class="dot" id="dChat"></i><span id="tChat">chat</span></span>
-    <span>backend: <b id="tBackend">-</b></span>
+    <span><span data-i18n="backend">backend</span>: <b id="tBackend">-</b></span>
     <span id="tBudget"></span>
   </div>
+  <div class="lang"><a href="?lang=en" id="langEn">EN</a> <a href="?lang=ja" id="langJa">日本語</a></div>
 </header>
 <main>
   <div>
     <section>
-      <h2>Control</h2>
+      <h2 data-i18n="control">Control</h2>
       <div class="bar">
-        <button class="primary" id="bStart">▶ Start</button>
-        <button id="bStop">■ Stop</button>
-        <button id="bPause">⏸ Pause generation</button>
-        <button id="bResume">⏵ Resume</button>
-        <button id="bBudget" class="danger">Reset budget</button>
+        <button class="primary" id="bStart">▶ <span data-i18n="start">Start</span></button>
+        <button id="bStop">■ <span data-i18n="stop">Stop</span></button>
+        <button id="bPause">⏸ <span data-i18n="pause">Pause generation</span></button>
+        <button id="bResume">⏵ <span data-i18n="resume">Resume</span></button>
+        <button id="bBudget" class="danger" data-i18n="resetBudget">Reset budget</button>
       </div>
       <div class="budget"><i id="budgetBar" style="width:0%"></i></div>
       <div class="stats" id="stats"></div>
-      <p class="muted">OBS ブラウザソース: <code id="overlayUrl"></code>（幅1920 高1080、背景透過。<code>?pos=full|br|bl|tr|tl|c&w=960&audio=1</code>。既定は全画面（推しが主役））</p>
+      <p class="muted"><span data-i18n="obsSource">OBS browser source</span>: <code id="overlayUrl"></code> — 1920×1080. <code>?pos=full|br|bl|tr|tl|c&w=960&audio=1&lang=ja</code>. <span data-i18n="obsNote">Default is full-screen (the persona is the stream).</span></p>
     </section>
 
     <section>
-      <h2>Test comment</h2>
+      <h2 data-i18n="testComment">Test comment</h2>
       <div class="row">
-        <div><label>Author</label><input type="text" id="cAuthor" value="tester" /></div>
-        <div><label>Comment</label><input type="text" id="cText" placeholder="猫がサーフィンしてる" /></div>
+        <div><label data-i18n="author">Author</label><input type="text" id="cAuthor" value="tester" /></div>
+        <div><label data-i18n="comment">Comment</label><input type="text" id="cText" placeholder="dance!!" /></div>
       </div>
       <div class="bar">
-        <button class="primary" id="bSend">Send</button>
-        <span class="chk"><input type="checkbox" id="cOwner" /> as owner</span>
-        <span class="chk"><input type="checkbox" id="cMod" /> as moderator</span>
+        <button class="primary" id="bSend" data-i18n="send">Send</button>
+        <span class="chk"><input type="checkbox" id="cOwner" /> <span data-i18n="asOwner">as owner</span></span>
+        <span class="chk"><input type="checkbox" id="cMod" /> <span data-i18n="asMod">as moderator</span></span>
       </div>
     </section>
 
     <section>
-      <h2>Pending approval</h2>
-      <ul class="jobs" id="pending"><li class="muted">none</li></ul>
+      <h2 data-i18n="pending">Pending approval</h2>
+      <ul class="jobs" id="pending"><li class="muted" data-i18n="none">none</li></ul>
     </section>
     <section>
-      <h2>Queue</h2>
-      <ul class="jobs" id="queue"><li class="muted">empty</li></ul>
+      <h2 data-i18n="queue">Queue</h2>
+      <ul class="jobs" id="queue"><li class="muted" data-i18n="empty">empty</li></ul>
     </section>
     <section>
-      <h2>Recent</h2>
-      <ul class="jobs" id="recent"><li class="muted">none</li></ul>
+      <h2 data-i18n="recent">Recent</h2>
+      <p class="muted" data-i18n="rateHint">Rate face consistency 1–5 on each finished clip; it goes into the JSONL log.</p>
+      <ul class="jobs" id="recent"><li class="muted" data-i18n="none">none</li></ul>
     </section>
     <section>
-      <h2>Log</h2>
+      <h2 data-i18n="log">Log</h2>
       <pre id="log"></pre>
-      <p class="muted">metrics JSONL: <code id="metricsFile"></code></p>
+      <p class="muted"><span data-i18n="metrics">metrics JSONL</span>: <code id="metricsFile"></code></p>
     </section>
   </div>
 
   <div>
     <form id="f" onsubmit="return false">
-      <section>
-        <h2>Platform</h2>
-        <div class="row">
-          <div><label>Platform</label>
-            <select name="platform"><option value="manual">manual (test / curated)</option><option value="youtube">YouTube Live (API key)</option></select></div>
-          <div><label>YouTube video ID</label><input type="text" name="youtubeVideoId" placeholder="e.g. dQw4w9WgXcQ" /></div>
-        </div>
-        <p class="muted">YouTube: <code>YOUTUBE_API_KEY</code> を .env に。配信中の動画IDを入れて Start。</p>
-      </section>
-
-      <section>
-        <h2>Generation</h2>
-        <div class="row3">
-          <div><label>Backend</label>
-            <select name="backend"><option value="mock">mock ($0, text card)</option><option value="fal">fal (H3 Max)</option><option value="local">local (ComfyUI)</option></select></div>
-          <div><label>Resolution</label><select name="resolution"><option value="480p">480p ($0.05/s)</option><option value="768p">768p ($0.08/s)</option></select></div>
-          <div><label>Duration (s)</label><input type="number" name="durationSec" min="5" max="10" /></div>
-        </div>
-        <div class="row">
-          <div><label>Budget per session (USD)</label><input type="number" name="budgetUsd" min="0" step="0.5" /></div>
-          <div><label>Max queue</label><input type="number" name="maxQueue" min="1" max="50" /></div>
-        </div>
-        <div class="chk"><input type="checkbox" name="audio" id="audio" /><label for="audio" style="margin:0">Generate with audio (H3 native audio; overlay needs <code>?audio=1</code>)</label></div>
-        <div class="chk"><input type="checkbox" name="showAiBadge" id="showAiBadge" /><label for="showAiBadge" style="margin:0">Show "AI生成" badge</label></div>
-        <div class="chk"><input type="checkbox" name="replyMode" id="replyMode" /><label for="replyMode" style="margin:0">返事モード（LLM が推しの一言を返し、台詞と字幕に使う。<code>REPLY_PROVIDER</code>）</label></div>
-      </section>
-
-      <section>
-        <h2>World prompt (per stream)</h2>
-        <textarea name="worldPrompt" placeholder="空なら推しの既定の世界観を使う"></textarea>
-      </section>
-
       <section id="personaSec">
-        <h2>推し（persona）</h2>
+        <h2 data-i18n="persona">Persona</h2>
         <div class="row">
-          <div><label>Active persona</label><select id="pSelect"></select></div>
-          <div><label>New persona</label><div style="display:flex;gap:6px"><input type="text" id="pNewId" placeholder="id (a-z0-9-)" style="width:45%"/><input type="text" id="pNewName" placeholder="名前"/><button id="bPersonaCreate">＋</button></div></div>
+          <div><label data-i18n="activePersona">Active persona</label><select id="pSelect"></select></div>
+          <div><label data-i18n="newPersona">New persona</label><div style="display:flex;gap:6px"><input type="text" id="pNewId" placeholder="id (a-z0-9-)" style="width:45%"/><input type="text" id="pNewName" data-i18n-ph="name" placeholder="name"/><button id="bPersonaCreate">＋</button></div></div>
+        </div>
+        <div class="row">
+          <div><label data-i18n="style">Style</label><select id="pStyle"><option value="photoreal">photoreal</option><option value="anime">anime</option></select></div>
+          <div><label data-i18n="fanName">Fan name</label><input type="text" id="pFanName" /></div>
         </div>
         <div class="grid3" id="refs">
-          <figure class="ref"><img id="refFace" alt=""/><figcaption>顔 (Image 1)</figcaption></figure>
-          <figure class="ref"><img id="refFull" alt=""/><figcaption>全身 (Image 2)</figcaption></figure>
-          <figure class="ref"><img id="refScene" alt=""/><figcaption>世界観 (Image 3)</figcaption></figure>
+          <figure class="ref"><img id="refFace" alt=""/><figcaption data-i18n="refFace">Face (Image 1)</figcaption></figure>
+          <figure class="ref"><img id="refFull" alt=""/><figcaption data-i18n="refFull">Full body (Image 2)</figcaption></figure>
+          <figure class="ref"><img id="refScene" alt=""/><figcaption data-i18n="refScene">In scene (Image 3)</figcaption></figure>
         </div>
         <div class="bar">
           <span id="refStatus" class="muted"></span>
-          <button id="bConfirm">参照セットを確認して保存</button>
+          <button id="bConfirm" data-i18n="confirmRefs">Confirm reference set</button>
         </div>
 
-        <h3>1. 顔ガチャ（F-10）</h3>
-        <p class="muted">顔はここで<b>生成したものだけ</b>使えます。写真のアップロードはありません。生成指示には「架空の成人・実在人物に似せない」が常に付きます。</p>
-        <label>Prompt（空なら persona の referencePrompts.face）</label><textarea id="gachaPrompt" placeholder="Close-up portrait, …"></textarea>
-        <div class="bar"><button class="primary" id="bGacha">4 枚引く</button><span class="muted" id="gachaMsg"></span></div>
+        <h3>1. <span data-i18n="faceGacha">Face gacha</span></h3>
+        <p class="muted" data-i18n="gachaNote">Faces are generated here only — there is no upload. Every prompt carries "fictional adult, not resembling any real idol or existing character". Real idols and existing characters are rejected.</p>
+        <label data-i18n="gachaPrompt">Prompt (empty = the persona's face prompt)</label><textarea id="gachaPrompt" placeholder="Close-up portrait, …"></textarea>
+        <div class="bar"><button class="primary" id="bGacha" data-i18n="draw4">Draw 4</button><span class="muted" id="gachaMsg"></span></div>
         <div class="gacha" id="gacha"></div>
 
-        <h3>2. 声（F-11）</h3>
+        <h3>2. <span data-i18n="voice">Voice</span></h3>
+        <p class="muted" data-i18n="voiceNote">TTS-generated reference voice per language (never cloned from a real person). She replies in the commenter's language and uses the matching voice.</p>
         <div class="row">
-          <div><label>サンプル台詞（TTS で生成。実在人物の声は使わない）</label><input type="text" id="voiceText" /></div>
-          <div><label>&nbsp;</label><div class="bar" style="margin:0"><button id="bVoice">声を生成</button><audio id="voiceAudio" controls style="height:30px"></audio></div></div>
+          <div><label data-i18n="voiceText">Sample line (empty = default for the language)</label><input type="text" id="voiceText" /></div>
+          <div><label>&nbsp;</label><div class="voices"><button id="bVoiceEn">EN</button><button id="bVoiceKo">KO</button><button id="bVoiceJa">JA</button><span id="voiceMsg" class="muted"></span></div></div>
         </div>
+        <div class="voices" id="voiceList"></div>
 
-        <h3>3. 人格（F-12）</h3>
+        <h3>3. <span data-i18n="personality">Personality</span></h3>
         <div class="row">
-          <div><label>名前</label><input type="text" id="pName" /></div>
-          <div><label>ファンの呼び方</label><input type="text" id="pFanName" /></div>
+          <div><label data-i18n="name">Name</label><input type="text" id="pName" /></div>
+          <div><label data-i18n="catchphrase">Catchphrase</label><input type="text" id="pCatch" /></div>
         </div>
-        <label>キャッチコピー</label><input type="text" id="pCatch" />
-        <label>見た目（appearance.summary、英語。プロンプトに入る）</label><textarea id="pAppearance"></textarea>
-        <label>シグネチャ（カンマ区切り、英語。毎回必ず映すもの）</label><input type="text" id="pSignatures" />
-        <label>既定の世界観プロンプト（persona.worldPrompt、英語）</label><textarea id="pWorld"></textarea>
+        <label data-i18n="appearance">Appearance (English, goes into every prompt)</label><textarea id="pAppearance"></textarea>
+        <label data-i18n="signatures">Signatures (comma separated, always visible — helps consistency)</label><input type="text" id="pSignatures" />
+        <label data-i18n="worldDefault">Default world prompt (English)</label><textarea id="pWorld"></textarea>
         <div class="row">
-          <div><label>話し方</label><input type="text" id="pTone" /></div>
-          <div><label>口癖（カンマ区切り）</label><input type="text" id="pTics" /></div>
+          <div><label data-i18n="tone">Tone</label><input type="text" id="pTone" /></div>
+          <div><label data-i18n="tics">Verbal tics (comma separated)</label><input type="text" id="pTics" /></div>
         </div>
-        <label>禁止事項（1 行 1 項目、英語推奨。プロンプトの Never: に入る）</label><textarea id="pForbidden"></textarea>
-        <label>返事モードのシステムプロンプト（空なら人格から自動生成）</label><textarea id="pReplySys"></textarea>
-        <div class="bar"><button class="primary" id="bPersonaSave">人格を保存</button><span class="muted" id="pMsg"></span></div>
+        <label data-i18n="forbidden">Never (one per line, English — goes into the prompt as Never:)</label><textarea id="pForbidden"></textarea>
+        <label data-i18n="replySys">Reply system prompt (empty = generated from the personality)</label><textarea id="pReplySys"></textarea>
+        <div class="bar"><button class="primary" id="bPersonaSave" data-i18n="savePersona">Save persona</button><span class="muted" id="pMsg"></span></div>
 
-        <h3>4. 待機映像プール（F-13）</h3>
+        <h3>4. <span data-i18n="idlePool">Idle pool</span></h3>
         <div class="row">
-          <div><label>本数</label><input type="number" id="idleCount" min="1" max="60" /></div>
-          <div><label>&nbsp;</label><div class="bar" style="margin:0"><button id="bIdle">生成する</button><button id="bIdleCancel" class="danger">中止</button></div></div>
+          <div><label data-i18n="count">Count</label><input type="number" id="idleCount" min="1" max="60" /></div>
+          <div><label>&nbsp;</label><div class="bar" style="margin:0"><button id="bIdle" data-i18n="generate">Generate</button><button id="bIdleCancel" class="danger" data-i18n="cancel">Cancel</button></div></div>
         </div>
         <p class="muted" id="idleMsg"></p>
       </section>
 
       <section>
-        <h2>Selection & safety</h2>
+        <h2 data-i18n="platform">Platform</h2>
+        <div class="row">
+          <div><label data-i18n="platform">Platform</label>
+            <select name="platform"><option value="manual">manual (test / curated)</option><option value="youtube">YouTube Live (API key)</option></select></div>
+          <div><label data-i18n="videoId">YouTube video ID</label><input type="text" name="youtubeVideoId" placeholder="e.g. dQw4w9WgXcQ" /></div>
+        </div>
+        <p class="muted" data-i18n="ytNote">YouTube: put YOUTUBE_API_KEY in .env, start your stream, paste the video ID, Save, Start.</p>
+      </section>
+
+      <section>
+        <h2 data-i18n="generation">Generation</h2>
         <div class="row3">
-          <div><label>Min interval (s)</label><input type="number" name="minIntervalSec" min="0" /></div>
-          <div><label>User cooldown (s)</label><input type="number" name="userCooldownSec" min="0" /></div>
-          <div><label>Max comment chars</label><input type="number" name="maxCommentChars" min="10" /></div>
+          <div><label data-i18n="backend">Backend</label>
+            <select name="backend"><option value="mock">mock ($0, text card)</option><option value="fal">fal (H3 Max)</option><option value="local">local (ComfyUI)</option></select></div>
+          <div><label data-i18n="resolution">Resolution</label><select name="resolution"><option value="480p">480p ($0.05/s)</option><option value="768p">768p ($0.08/s)</option></select></div>
+          <div><label data-i18n="duration">Duration (s)</label><input type="number" name="durationSec" min="5" max="10" /></div>
         </div>
         <div class="row">
-          <div><label>Command prefix (empty = all comments)</label><input type="text" name="commandPrefix" placeholder="!gen" /></div>
-          <div><label>Approve command (mod/owner)</label><input type="text" name="approveCommand" /></div>
+          <div><label data-i18n="budget">Budget per session (USD)</label><input type="number" name="budgetUsd" min="0" step="0.5" /></div>
+          <div><label data-i18n="maxQueue">Max queue</label><input type="number" name="maxQueue" min="1" max="50" /></div>
         </div>
-        <div class="chk"><input type="checkbox" name="approvalMode" id="approvalMode" /><label for="approvalMode" style="margin:0">Approval mode (only approved comments generate)</label></div>
-        <label>Extra NG words (comma separated)</label><input type="text" name="ngWords" />
+        <div class="chk"><input type="checkbox" name="audio" id="audio" /><label for="audio" style="margin:0" data-i18n="audioOpt">Generate with audio (her spoken line; overlay needs ?audio=1)</label></div>
+        <div class="chk"><input type="checkbox" name="showAiBadge" id="showAiBadge" /><label for="showAiBadge" style="margin:0" data-i18n="badgeOpt">Show "AI generated" badge</label></div>
+        <div class="chk"><input type="checkbox" name="replyMode" id="replyMode" /><label for="replyMode" style="margin:0" data-i18n="replyOpt">Reply mode (an LLM answers each comment in her voice, in the commenter's language; REPLY_PROVIDER)</label></div>
       </section>
-      <div class="bar"><button class="primary" id="bSave">Save settings</button><span class="muted" id="saveMsg"></span></div>
+
+      <section>
+        <h2 data-i18n="world">World prompt (per stream)</h2>
+        <textarea name="worldPrompt" data-i18n-ph="worldPh" placeholder="empty = the persona's default world"></textarea>
+      </section>
+
+      <section>
+        <h2 data-i18n="selection">Selection & safety</h2>
+        <div class="row3">
+          <div><label data-i18n="minInterval">Min interval (s)</label><input type="number" name="minIntervalSec" min="0" /></div>
+          <div><label data-i18n="cooldown">User cooldown (s)</label><input type="number" name="userCooldownSec" min="0" /></div>
+          <div><label data-i18n="maxChars">Max comment chars</label><input type="number" name="maxCommentChars" min="10" /></div>
+        </div>
+        <div class="row">
+          <div><label data-i18n="prefix">Command prefix (empty = all comments)</label><input type="text" name="commandPrefix" placeholder="!gen" /></div>
+          <div><label data-i18n="approveCmd">Approve command (mod/owner)</label><input type="text" name="approveCommand" /></div>
+        </div>
+        <div class="chk"><input type="checkbox" name="approvalMode" id="approvalMode" /><label for="approvalMode" style="margin:0" data-i18n="approvalOpt">Approval mode (only approved comments generate)</label></div>
+        <label data-i18n="ngWords">Extra NG words (comma separated)</label><input type="text" name="ngWords" />
+        <p class="muted" data-i18n="ipNote">Built in: real idols, groups, anime/game characters and titles, "look like X" and choreography requests are dropped silently (data/ip-names.txt).</p>
+      </section>
+      <div class="bar"><button class="primary" id="bSave" data-i18n="saveSettings">Save settings</button><span class="muted" id="saveMsg"></span></div>
     </form>
   </div>
 </main>
@@ -224,37 +237,70 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const form = $('f');
+  const LANG = new URLSearchParams(location.search).get('lang') === 'ja' ? 'ja' : 'en';
+  const JA = {
+    backend: 'バックエンド', control: 'コントロール', start: 'Start', stop: 'Stop', pause: '生成を一時停止', resume: '再開', resetBudget: '予算をリセット',
+    obsSource: 'OBS ブラウザソース', obsNote: '既定は全画面（推しが配信画面そのもの）。', testComment: 'テストコメント', author: '投稿者', comment: 'コメント', send: '送信',
+    asOwner: 'オーナーとして', asMod: 'モデレーターとして', pending: '承認待ち', queue: 'キュー', recent: '直近', rateHint: '再生済みクリップの顔一貫性を 1〜5 で評価。JSONL に記録されます。',
+    log: 'ログ', metrics: '実測ログ JSONL', none: 'なし', empty: '空', persona: '推し（persona）', activePersona: '使用中の推し', newPersona: '新規作成', name: '名前', style: 'スタイル', fanName: 'ファンの呼び方',
+    refFace: '顔 (Image 1)', refFull: '全身 (Image 2)', refScene: '世界観 (Image 3)', confirmRefs: '参照セットを確認して保存', faceGacha: '顔ガチャ',
+    gachaNote: '顔はここで生成したものだけ使えます。写真のアップロードはありません。生成指示には「架空の成人・実在アイドルや既存キャラに似せない」が常に付き、実在アイドル・既存キャラの指定は拒否されます。',
+    gachaPrompt: 'プロンプト（空なら推しの顔プロンプト）', draw4: '4 枚引く', voice: '声', voiceNote: '言語ごとに TTS で参照音声を生成（実在人物の声は使わない）。推しはコメントの言語で返し、その言語の声を使います。',
+    voiceText: 'サンプル台詞（空なら言語ごとの既定）', personality: '人格', catchphrase: 'キャッチコピー', appearance: '見た目（英語、毎回プロンプトに入る）', signatures: 'シグネチャ（カンマ区切り、毎回必ず映す。一貫性の手がかり）',
+    worldDefault: '既定の世界観プロンプト（英語）', tone: '話し方', tics: '口癖（カンマ区切り）', forbidden: '禁止事項（1 行 1 項目、英語。プロンプトの Never: に入る）', replySys: '返事モードのシステムプロンプト（空なら人格から自動生成）',
+    savePersona: '人格を保存', idlePool: '待機映像プール', count: '本数', generate: '生成する', cancel: '中止', platform: 'プラットフォーム', videoId: 'YouTube 動画 ID',
+    ytNote: 'YouTube: .env に YOUTUBE_API_KEY を入れ、配信を開始してから動画 ID を貼って Save → Start。', generation: '生成', resolution: '解像度', duration: '長さ（秒）', budget: 'セッション予算（USD）', maxQueue: 'キュー上限',
+    audioOpt: '音声ありで生成（推しの台詞。overlay に ?audio=1）', badgeOpt: '「AI 生成」表記を出す', replyOpt: '返事モード（LLM が推しの一言をコメントの言語で返す。REPLY_PROVIDER）',
+    world: '世界観プロンプト（配信ごと）', worldPh: '空なら推しの既定の世界観', selection: '選定と安全', minInterval: '最小間隔（秒）', cooldown: '同一ユーザー冷却（秒）', maxChars: 'コメント最大文字数',
+    prefix: 'コマンド接頭辞（空なら全コメント）', approveCmd: '承認コマンド（mod/owner）', approvalOpt: '承認モード（通したコメントだけ生成）', ngWords: '追加 NG ワード（カンマ区切り）',
+    ipNote: '同梱：実在アイドル・グループ・アニメ／ゲームのキャラと作品名、「〇〇に似せて」「〇〇の振付」は黙って除外（data/ip-names.txt）。', saveSettings: '設定を保存',
+  };
+  const T = (k) => (LANG === 'ja' && JA[k]) || null;
+  if (LANG === 'ja') {
+    document.documentElement.lang = 'ja';
+    for (const el of document.querySelectorAll('[data-i18n]')) { const v = T(el.dataset.i18n); if (v) el.textContent = v; }
+    for (const el of document.querySelectorAll('[data-i18n-ph]')) { const v = T(el.dataset.i18nPh); if (v) el.placeholder = v; }
+  }
+  $('langEn').classList.toggle('on', LANG === 'en'); $('langJa').classList.toggle('on', LANG === 'ja');
+  const S = {
+    running: LANG === 'ja' ? '稼働中' : 'running', paused: LANG === 'ja' ? '一時停止' : 'paused', stopped: LANG === 'ja' ? '停止' : 'stopped',
+    exhausted: LANG === 'ja' ? ' ⚠ 上限到達' : ' ⚠ exhausted', noRefs: LANG === 'ja' ? '参照画像なし（顔ガチャから）' : 'no reference images yet (draw a face)',
+    refs: (n, c) => LANG === 'ja' ? `参照セット ${n}/3 · ${c ? '確認済み' : '未確認'}` : `reference set ${n}/3 · ${c ? 'confirmed' : 'unconfirmed'}`,
+    idle: (n) => LANG === 'ja' ? `待機クリップ ${n} 本` : `${n} idle clips`, idleGen: (d, t) => LANG === 'ja' ? `待機クリップ生成中 ${d}/${t}` : `generating idle clips ${d}/${t}`,
+    gen: LANG === 'ja' ? '生成中…' : 'generating…', pick: LANG === 'ja' ? '気に入った顔をクリックすると全身と世界観を派生生成します' : 'click a face to derive the full-body and in-scene references',
+    derive: LANG === 'ja' ? 'この顔で参照セット（全身・世界観）を派生生成しますか？' : 'Derive the reference set (full body + in scene) from this face?',
+    derived: LANG === 'ja' ? '参照セットを作りました。下の 3 枚を確認して保存してください' : 'reference set created — check the 3 images and confirm',
+    idleConfirm: (c, b, u) => LANG === 'ja' ? `${c} 本の待機クリップを ${b} で生成します。推定 $${u}。既存のプールは置き換えます。` : `Generate ${c} idle clips on ${b}, estimated $${u}. This replaces the current pool.`,
+    resetConfirm: LANG === 'ja' ? '使用額を $0 に戻しますか？' : 'Reset spent budget to $0?', saved: LANG === 'ja' ? '保存 ' : 'saved ', noPersona: LANG === 'ja' ? 'persona がありません' : 'no persona',
+  };
   $('overlayUrl').textContent = location.origin + '/overlay';
   const api = (p, body) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then(r => r.json());
 
   function fill(s) {
     for (const el of form.elements) {
       if (!el.name) continue;
-      const v = el.name.split('.').reduce((o, k) => (o == null ? undefined : o[k]), s);
+      const v = s[el.name];
       if (el.type === 'checkbox') el.checked = !!v;
       else if (Array.isArray(v)) el.value = v.join(', ');
       else if (v != null) el.value = v;
     }
   }
   function collect() {
-    const out = { character: {} };
+    const out = {};
     for (const el of form.elements) {
       if (!el.name) continue;
       let v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-      if (el.name === 'ngWords' || el.name === 'character.referenceImages') v = String(v).split(',').map(x => x.trim()).filter(Boolean);
-      if (el.name.startsWith('character.')) out.character[el.name.slice(10)] = v; else out[el.name] = v;
+      if (el.name === 'ngWords') v = String(v).split(',').map(x => x.trim()).filter(Boolean);
+      out[el.name] = v;
     }
     return out;
   }
-  $('bSave').onclick = async () => {
-    const s = await api('/api/settings', collect());
-    fill(s); $('saveMsg').textContent = 'saved ' + new Date().toLocaleTimeString();
-  };
+  $('bSave').onclick = async () => { const s = await api('/api/settings', collect()); fill(s); $('saveMsg').textContent = S.saved + new Date().toLocaleTimeString(); };
   $('bStart').onclick = () => api('/api/control', { action: 'start' });
   $('bStop').onclick = () => api('/api/control', { action: 'stop' });
   $('bPause').onclick = () => api('/api/control', { action: 'pause' });
   $('bResume').onclick = () => api('/api/control', { action: 'resume' });
-  $('bBudget').onclick = () => confirm('Reset spent budget to $0?') && api('/api/control', { action: 'reset-budget' });
+  $('bBudget').onclick = () => confirm(S.resetConfirm) && api('/api/control', { action: 'reset-budget' });
   $('bSend').onclick = async () => {
     const text = $('cText').value.trim(); if (!text) return;
     await api('/api/comment', { text, author: $('cAuthor').value, owner: $('cOwner').checked, moderator: $('cMod').checked });
@@ -266,13 +312,8 @@
     const li = document.createElement('li');
     const tag = document.createElement('span'); tag.className = 'tag ' + j.status; tag.textContent = j.status;
     const who = document.createElement('span'); who.className = 'who'; who.textContent = j.authorName;
-    const txt = document.createElement('span'); txt.className = 'txt'; txt.textContent = j.text + (j.reply ? '  「' + j.reply + '」' : ''); txt.title = j.prompt;
+    const txt = document.createElement('span'); txt.className = 'txt'; txt.textContent = j.text + (j.reply ? '  “' + j.reply + '”' : ''); txt.title = j.prompt;
     li.append(tag, who, txt);
-    if (j.status === 'done' && j.kind === 'video') {
-      const st = document.createElement('span'); st.className = 'stars'; st.title = '顔一貫性 1-5';
-      for (let n = 1; n <= 5; n++) { const b = document.createElement('button'); b.textContent = String(n); b.onclick = () => { api('/api/rate', { id: j.id, score: n }); st.textContent = '★' + n; }; st.append(b); }
-      li.append(st);
-    }
     if (actions) {
       const ok = document.createElement('button'); ok.textContent = '✓'; ok.onclick = () => api('/api/approve', { id: j.id });
       const no = document.createElement('button'); no.textContent = '✕'; no.className = 'danger'; no.onclick = () => api('/api/reject', { id: j.id });
@@ -280,6 +321,11 @@
     } else if (j.status === 'queued') {
       const no = document.createElement('button'); no.textContent = '✕'; no.className = 'danger'; no.onclick = () => api('/api/reject', { id: j.id });
       li.append(no);
+    }
+    if (j.status === 'done' && j.kind === 'video') {
+      const st = document.createElement('span'); st.className = 'stars'; st.title = 'face consistency 1-5';
+      for (let n = 1; n <= 5; n++) { const b = document.createElement('button'); b.textContent = String(n); b.onclick = () => { api('/api/rate', { id: j.id, score: n }); st.textContent = '★' + n; }; st.append(b); }
+      li.append(st);
     }
     return li;
   }
@@ -290,19 +336,19 @@
   }
   function render(st) {
     $('dRun').className = 'dot ' + (st.running ? (st.paused ? 'warn' : 'on') : '');
-    $('tRun').textContent = st.running ? (st.paused ? 'paused' : 'running') : 'stopped';
+    $('tRun').textContent = st.running ? (st.paused ? S.paused : S.running) : S.stopped;
     $('dChat').className = 'dot ' + (st.chatConnected ? 'on' : (st.running ? 'err' : ''));
     $('tChat').textContent = st.chatInfo;
     const pct = st.budgetUsd > 0 ? Math.min(100, st.spentUsd / st.budgetUsd * 100) : 0;
     const bar = $('budgetBar'); bar.style.width = pct + '%'; bar.className = pct > 90 ? 'err' : pct > 70 ? 'warn' : '';
-    $('tBudget').textContent = `$${st.spentUsd.toFixed(2)} / $${st.budgetUsd}` + (st.budgetExhausted ? ' ⚠ exhausted' : '');
+    $('tBudget').textContent = `$${st.spentUsd.toFixed(2)} / $${st.budgetUsd}` + (st.budgetExhausted ? S.exhausted : '');
     const yt = st.youtube ? ` · yt polls <b>${st.youtube.polls}</b> (~${st.youtube.estUnits} units, interval ${st.youtube.lastIntervalMs}ms)` : '';
     $('stats').innerHTML = `received <b>${st.stats.received}</b> · filtered <b>${st.stats.filtered}</b> · generated <b>${st.stats.generated}</b> · failed <b>${st.stats.failed}</b> · played <b>${st.stats.played}</b>${yt}`;
-    list('pending', st.pending, true, 'none');
-    list('queue', (st.current ? [st.current] : []).concat(st.queue), false, 'empty');
-    list('recent', st.recent, false, 'none');
-    if (st.idleJob && st.idleJob.running) $('idleMsg').textContent = '待機クリップ生成中 ' + st.idleJob.done + '/' + st.idleJob.total;
-    else if (st.persona) $('idleMsg').textContent = '待機クリップ ' + st.persona.idleClips + ' 本' + (st.persona.refs < 3 ? '（参照セットが 3 枚未満）' : '');
+    list('pending', st.pending, true, T('none') || 'none');
+    list('queue', (st.current ? [st.current] : []).concat(st.queue), false, T('empty') || 'empty');
+    list('recent', st.recent, false, T('none') || 'none');
+    if (st.idleJob && st.idleJob.running) $('idleMsg').textContent = S.idleGen(st.idleJob.done, st.idleJob.total);
+    else if (st.persona) $('idleMsg').textContent = S.idle(st.persona.idleClips) + (st.persona.refs < 3 ? (LANG === 'ja' ? '（参照セットが 3 枚未満）' : ' (reference set incomplete)') : '');
   }
   function addLog(level, line, t) {
     const pre = $('log');
@@ -321,19 +367,21 @@
   function refUrl(p, rel) { return rel ? '/personas/' + encodeURIComponent(p.id) + '/' + rel + '?t=' + Date.now() : ''; }
   function renderPersona(p) {
     persona = p;
-    if (!p) { $('refStatus').textContent = 'persona がありません'; return; }
+    if (!p) { $('refStatus').textContent = S.noPersona; return; }
     $('refFace').src = refUrl(p, p.references.face); $('refFull').src = refUrl(p, p.references.full); $('refScene').src = refUrl(p, p.references.scene);
     const n = [p.references.face, p.references.full, p.references.scene].filter(Boolean).length;
-    $('refStatus').textContent = n === 0 ? '参照画像なし（顔ガチャから）' : (p.references.confirmed ? '参照セット ' + n + '/3 · 確認済み' : '参照セット ' + n + '/3 · 未確認');
+    $('refStatus').textContent = n === 0 ? S.noRefs : S.refs(n, p.references.confirmed);
     $('bConfirm').disabled = n < 3 || !!p.references.confirmed;
+    $('pStyle').value = p.style === 'anime' ? 'anime' : 'photoreal';
     $('gachaPrompt').placeholder = (p.referencePrompts && p.referencePrompts.face) || p.appearance.summary || '';
-    $('voiceText').value = (p.voice && p.voice.sampleLine) || '';
-    const va = $('voiceAudio'); if (p.references.voice) { va.src = refUrl(p, p.references.voice); va.style.display = ''; } else { va.removeAttribute('src'); va.style.display = 'none'; }
+    const vl = $('voiceList'); vl.innerHTML = '';
+    const voices = Object.assign({}, p.references.voices || {}); if (p.references.voice && !Object.values(voices).includes(p.references.voice)) voices.primary = p.references.voice;
+    for (const [l, rel] of Object.entries(voices)) { const s = document.createElement('span'); s.className = 'muted'; s.textContent = l.toUpperCase(); const a = document.createElement('audio'); a.controls = true; a.src = refUrl(p, rel); vl.append(s, a); }
     $('pName').value = p.name || ''; $('pFanName').value = p.fanName || ''; $('pCatch').value = p.catchphrase || '';
     $('pAppearance').value = p.appearance.summary || ''; $('pSignatures').value = (p.appearance.signatures || []).join(', ');
     $('pWorld').value = p.worldPrompt || ''; $('pTone').value = p.personality.tone || ''; $('pTics').value = (p.personality.verbalTics || []).join(', ');
     $('pForbidden').value = (p.forbidden || []).join('\n'); $('pReplySys').value = p.replySystemPrompt || '';
-    $('idleMsg').textContent = '待機クリップ ' + ((p.idle && p.idle.clips.length) || 0) + ' 本';
+    $('idleMsg').textContent = S.idle((p.idle && p.idle.clips.length) || 0);
   }
   $('pSelect').onchange = async () => { const p = await api('/api/persona/select', { id: $('pSelect').value }); renderPersona(p); };
   $('bPersonaCreate').onclick = async () => {
@@ -342,45 +390,49 @@
     const d = await fetch('/api/state').then(x => x.json()); renderPersonaList(d.personas, d.persona && d.persona.id); renderPersona(d.persona);
   };
   $('bGacha').onclick = async () => {
-    $('gachaMsg').textContent = '生成中…'; $('bGacha').disabled = true;
+    $('gachaMsg').textContent = S.gen; $('bGacha').disabled = true;
     const r = await api('/api/persona/gacha', { prompt: $('gachaPrompt').value, count: 4 });
     $('bGacha').disabled = false;
     if (r.error) { $('gachaMsg').textContent = r.error; return; }
-    $('gachaMsg').textContent = r.backend + ' · $' + r.costUsd.toFixed(2) + ' · 気に入った顔をクリックすると全身と世界観を派生生成します';
+    $('gachaMsg').textContent = r.backend + ' · $' + r.costUsd.toFixed(2) + ' · ' + S.pick;
     renderGacha(r.candidates);
   };
   function renderGacha(cands) {
     const g = $('gacha'); g.innerHTML = '';
     for (const c of cands) { const img = document.createElement('img'); img.src = c.url; img.title = c.file; img.onclick = async () => {
-      if (!confirm('この顔で参照セット（全身・世界観）を派生生成しますか？')) return;
-      $('gachaMsg').textContent = '派生生成中…';
+      if (!confirm(S.derive)) return;
+      $('gachaMsg').textContent = S.gen;
       const r = await api('/api/persona/adopt', { candidate: c.file });
       if (r.error) { $('gachaMsg').textContent = r.error; return; }
-      $('gachaMsg').textContent = '参照セットを作りました（$' + r.costUsd.toFixed(2) + '）。下の 3 枚を確認して保存してください';
+      $('gachaMsg').textContent = S.derived + ' ($' + r.costUsd.toFixed(2) + ')';
       renderPersona(r.persona);
     }; g.append(img); }
   }
   $('bConfirm').onclick = async () => { renderPersona(await api('/api/persona/confirm', { confirmed: true })); };
-  $('bVoice').onclick = async () => {
-    $('bVoice').disabled = true; const r = await api('/api/persona/voice', { text: $('voiceText').value }); $('bVoice').disabled = false;
-    if (r.error) { alert(r.error); return; } renderPersona(r.persona);
-  };
+  for (const [id, lang] of [['bVoiceEn', 'en'], ['bVoiceKo', 'ko'], ['bVoiceJa', 'ja']]) {
+    $(id).onclick = async () => {
+      $(id).disabled = true; $('voiceMsg').textContent = S.gen;
+      const r = await api('/api/persona/voice', { text: $('voiceText').value, lang }); $(id).disabled = false;
+      if (r.error) { $('voiceMsg').textContent = r.error; return; }
+      $('voiceMsg').textContent = lang.toUpperCase() + ' · ' + r.backend + ' · $' + r.costUsd.toFixed(2); renderPersona(r.persona);
+    };
+  }
   $('bPersonaSave').onclick = async () => {
     const patch = {
-      name: $('pName').value, fanName: $('pFanName').value, catchphrase: $('pCatch').value,
+      name: $('pName').value, fanName: $('pFanName').value, catchphrase: $('pCatch').value, style: $('pStyle').value,
       appearance: { summary: $('pAppearance').value, signatures: $('pSignatures').value.split(',').map(x => x.trim()).filter(Boolean) },
       worldPrompt: $('pWorld').value,
       personality: { tone: $('pTone').value, verbalTics: $('pTics').value.split(',').map(x => x.trim()).filter(Boolean) },
       forbidden: $('pForbidden').value.split('\n').map(x => x.trim()).filter(Boolean),
       replySystemPrompt: $('pReplySys').value,
     };
-    const p = await api('/api/persona/save', patch); if (p.error) { alert(p.error); return; }
-    renderPersona(p); $('pMsg').textContent = 'saved ' + new Date().toLocaleTimeString();
+    const p = await api('/api/persona/save', patch); if (p.error) { $('pMsg').textContent = p.error; return; }
+    renderPersona(p); $('pMsg').textContent = S.saved + new Date().toLocaleTimeString();
   };
   $('bIdle').onclick = async () => {
     const count = Number($('idleCount').value || 12);
     const est = await fetch('/api/persona/idle/estimate?count=' + count).then(r => r.json());
-    if (!confirm(count + ' 本の待機クリップを ' + est.backend + ' で生成します。推定 $' + est.totalUsd.toFixed(2) + '。既存のプールは置き換えます。')) return;
+    if (!confirm(S.idleConfirm(count, est.backend, est.totalUsd.toFixed(2)))) return;
     const r = await api('/api/persona/idle', { count }); if (r.error) alert(r.error);
   };
   $('bIdleCancel').onclick = () => api('/api/persona/idle', { action: 'cancel' });

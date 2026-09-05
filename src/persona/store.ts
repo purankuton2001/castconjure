@@ -101,6 +101,8 @@ export function referenceImageUris(p: Persona): string[] {
     .filter((u): u is string => !!u);
 }
 
-export function referenceVoiceUri(p: Persona): string | undefined {
-  return fileDataUri(p.id, p.references.voice);
+/** Reference voice for a language, falling back to the primary voice. */
+export function referenceVoiceUri(p: Persona, lang?: string): string | undefined {
+  const rel = (lang && p.references.voices?.[lang]) || p.references.voice;
+  return fileDataUri(p.id, rel);
 }

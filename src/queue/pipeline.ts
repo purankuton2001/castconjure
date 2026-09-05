@@ -13,6 +13,7 @@ import { MetricsLogger } from '../metrics/logger.js';
 import { buildIdlePrompt, buildPrompt } from '../prompt/builder.js';
 import { generateReply } from '../reply/llm.js';
 import { loadPersona, personaDir, personaUrl, referenceImageUris, referenceVoiceUri, savePersona } from '../persona/store.js';
+import { detectLang } from '../persona/voice.js';
 import type { ChatMessage, GenerateBackend, GenerateRequest, Job, Persona, PublicJob, PublicState, Settings, WsServerMessage } from '../types.js';
 
 type Listener = (msg: WsServerMessage) => void;
@@ -37,7 +38,7 @@ export class Pipeline {
   private logLines: { level: 'info' | 'warn' | 'error'; line: string; t: number }[] = [];
   private seq = 0;
   private persona: Persona | null = null;
-  private refCache?: { id: string; images: string[]; voice?: string; stamp: string };
+  private refCache?: { id: string; images: string[]; voice?: string; voices: Record<string, string | undefined>; stamp: string };
   private idleJob?: { running: boolean; done: number; total: number; abort: AbortController };
 
   running = false;
@@ -104,10 +105,10 @@ export class Pipeline {
   }
 
   /** Reference data URIs, cached per persona + file mtimes. */
-  private refs(): { images: string[]; voice?: string } {
+  private refs(lang?: string): { images: string[]; voice?: string } {
     const p = this.persona;
     if (!p) return { images: [] };
-    const files = [p.references.face, p.references.full, p.references.scene, p.references.voice].filter(Boolean) as string[];
+    const files = [p.references.face, p.references.full, p.references.scene, p.references.voice, ...Object.values(p.references.voices ?? {})].filter(Boolean) as string[];
     const stamp = files
       .map((f) => {
         try {
@@ -118,9 +119,12 @@ export class Pipeline {
       })
       .join(',');
     if (!this.refCache || this.refCache.id !== p.id || this.refCache.stamp !== stamp) {
-      this.refCache = { id: p.id, images: referenceImageUris(p), voice: referenceVoiceUri(p), stamp };
+      const voices: Record<string, string | undefined> = {};
+      for (const l of Object.keys(p.references.voices ?? {})) voices[l] = referenceVoiceUri(p, l);
+      this.refCache = { id: p.id, images: referenceImageUris(p), voice: referenceVoiceUri(p), voices, stamp };
     }
-    return { images: this.refCache.images, voice: this.refCache.voice };
+    const voice = (lang && this.refCache.voices[lang]) || this.refCache.voice;
+    return { images: this.refCache.images, voice };
   }
 
   idlePoolMessage(): WsServerMessage {
@@ -129,8 +133,8 @@ export class Pipeline {
     return { type: 'idlePool', persona: { id: p?.id ?? '', name: p?.name ?? '', fanName: p?.fanName }, clips };
   }
 
-  private request(prompt: string, audio = this.settings.audio): GenerateRequest {
-    const r = this.refs();
+  private request(prompt: string, audio = this.settings.audio, lang?: string): GenerateRequest {
+    const r = this.refs(lang);
     return { prompt, durationSec: this.settings.durationSec, resolution: this.settings.resolution, referenceImageUrls: r.images, referenceAudioUrl: r.voice, audio };
   }
 
@@ -425,7 +429,10 @@ export class Pipeline {
     if (s.replyMode && this.persona) {
       try {
         const r = await generateReply({ persona: this.persona, author: job.message.authorName, comment: job.message.text }, ac.signal);
-        const blocked = this.ng.check(r.text, s.ngWords, 200, { allowNames: true });
+        // Check the line's content, not the viewer's handle (handles often contain idol names).
+        const handle = job.message.authorName.trim();
+        const content = handle ? r.text.split(handle).join('viewer') : r.text;
+        const blocked = this.ng.check(content, s.ngWords, 200, { allowNames: true });
         job.reply = blocked ? fallbackLine(this.persona) : r.text;
         job.replyMs = r.ms;
         this.metrics.log('reply_done', { job: job.id, provider: r.provider, ms: r.ms, blocked: blocked ?? null, chars: [...job.reply].length });
@@ -435,10 +442,11 @@ export class Pipeline {
         this.log('warn', `reply failed, using fallback: ${(e as Error).message}`);
       }
     }
-    const refs = this.refs();
+    const lang = job.reply ? detectLang(job.reply) : detectLang(job.message.text);
+    const refs = this.refs(lang);
     job.prompt = buildPrompt({ comment: job.message.text, reply: job.reply, refCount: refs.images.length, hasVoice: !!refs.voice }, s, this.persona);
-    const req = this.request(job.prompt);
-    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, refImages: refs.images.length, voice: !!refs.voice && s.audio, estimateUsd: estimate, promptLen: job.prompt.length });
+    const req = this.request(job.prompt, this.settings.audio, lang);
+    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, refImages: refs.images.length, voice: !!refs.voice && s.audio, lang, style: this.persona?.style ?? 'photoreal', estimateUsd: estimate, promptLen: job.prompt.length });
     if (!this.current) this.broadcast({ type: 'generating', job: this.toPublic(job) });
     this.pushState();
 

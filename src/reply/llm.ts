@@ -26,9 +26,13 @@ export async function generateReply(req: ReplyRequest, signal?: AbortSignal): Pr
 }
 
 function mock(req: ReplyRequest): string {
-  const tics = req.persona.personality.verbalTics?.length ? req.persona.personality.verbalTics : ['やってみよ！'];
-  const tic = tics[Math.floor(Math.random() * tics.length)];
-  return `${req.author}さん、${tic}`;
+  // Language follows the comment (Hangul → ko, kana/kanji → ja, else en), like a real LLM reply would.
+  if (/[\uac00-\ud7a3]/.test(req.comment)) return `${req.author}, 해보자!`;
+  if (/[\u3040-\u30ff\u4e00-\u9fff]/.test(req.comment)) {
+    const tics = req.persona.personality.verbalTics?.length ? req.persona.personality.verbalTics : ['やってみよ！'];
+    return `${req.author}さん、${tics[Math.floor(Math.random() * tics.length)]}`;
+  }
+  return `${req.author}, let's do it!`;
 }
 
 function clean(s: string, max: number): string {

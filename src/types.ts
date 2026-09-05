@@ -20,9 +20,13 @@ export interface ChatMessage {
 }
 
 /** A persona ("推し"): the generated character that fronts the stream. Lives in data/personas/<id>/. */
+export type PersonaStyle = 'photoreal' | 'anime';
+
 export interface Persona {
   id: string;
   name: string;
+  /** Visual style preset. Drives the face-gacha suffix and the video prompt. Default photoreal. */
+  style?: PersonaStyle;
   reading?: string;
   nameEn?: string;
   age?: number;
@@ -31,7 +35,17 @@ export interface Persona {
   catchphrase?: string;
   appearance: { summary: string; signatures?: string[]; defaultOutfit?: string; defaultScene?: string };
   /** Files relative to the persona dir. Only ever produced in-app (F-10/F-11); never a photo of a real person. */
-  references: { face?: string; full?: string; scene?: string; voice?: string; confirmed?: boolean; note?: string };
+  references: {
+    face?: string;
+    full?: string;
+    scene?: string;
+    /** Primary reference voice (the persona's default language). */
+    voice?: string;
+    /** Per-language reference voices (F-11 multilingual), e.g. { en: 'voice.en.mp3', ko: 'voice.ko.mp3' }. */
+    voices?: Record<string, string>;
+    confirmed?: boolean;
+    note?: string;
+  };
   referencePrompts?: { suffix?: string; face?: string; full?: string; scene?: string };
   worldPrompt?: string;
   personality: {
@@ -98,6 +112,7 @@ export type FilterReason =
   | 'url'
   | 'ng_word'
   | 'real_person'
+  | 'ip'
   | 'no_command_prefix'
   | 'command'
   | 'rate_limit'

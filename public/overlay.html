@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <title>castconjure overlay</title>
@@ -48,7 +48,7 @@
   .row { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
   #author { max-width: 75%; padding: 8px 14px; border-radius: 999px; background: rgba(0,0,0,.65); color: #fff; font-size: 20px; font-weight: 700;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.6); border-left: 6px solid var(--accent); }
-  #author small { font-weight: 400; opacity: .85; margin-left: 8px; }
+  #author small { font-weight: 400; opacity: .85; margin-left: 4px; }
   #badge { position: absolute; top: 12px; right: 14px; padding: 5px 10px; border-radius: 6px; background: rgba(0,0,0,.55); color: #ddd; font-size: 13px; letter-spacing: .05em; }
   #badge.hide { display: none; }
   #comment { color: #fff; font-size: 16px; opacity: .85; text-shadow: 0 1px 3px rgba(0,0,0,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -60,19 +60,19 @@
     <div class="layer" id="idle">
       <video id="idleA" playsinline muted preload="auto"></video>
       <video id="idleB" playsinline muted preload="auto"></video>
-      <div id="idleCard"><div class="name"></div><div class="sub">唱えてくれたら、出てくるよ</div></div>
+      <div id="idleCard"><div class="name"></div><div class="sub">Say it in chat and she appears</div></div>
     </div>
     <div class="layer" id="reaction">
       <video id="video" playsinline preload="auto"></video>
       <div id="card"></div>
     </div>
-    <div id="wait"><div class="spin"></div><span id="waitText">生成中…</span></div>
+    <div id="wait"><div class="spin"></div><span id="waitText">generating…</span></div>
     <div id="meta">
       <div id="subtitle"></div>
       <div class="row"><div id="author"></div></div>
       <div id="comment"></div>
     </div>
-    <div id="badge">AI生成 / AI generated</div>
+    <div id="badge">AI generated</div>
   </div>
 </div>
 <script>
@@ -90,6 +90,13 @@
   const unmuted = q.get('audio') === '1';
   const showWait = q.get('wait') !== '0';
   const idleEnabled = q.get('idle') !== '0';
+  const LANG = q.get('lang') === 'ja' ? 'ja' : 'en';
+  const TXT = LANG === 'ja'
+    ? { sub: '唱えてくれたら、出てくるよ', wait: '生成中…', badge: 'AI生成 / AI generated', of: (n) => n, suffix: 'のコメント' }
+    : { sub: 'Say it in chat and she appears', wait: 'generating…', badge: 'AI generated', of: (n) => n, suffix: "'s comment" };
+  document.querySelector('#idleCard .sub').textContent = TXT.sub;
+  document.getElementById('waitText').textContent = TXT.wait;
+  document.getElementById('badge').textContent = TXT.badge;
 
   const $ = (id) => document.getElementById(id);
   const idleV = [$('idleA'), $('idleB')];
@@ -156,7 +163,7 @@
   function setMeta(job) {
     author.innerHTML = '';
     author.textContent = job.authorName;
-    const s = document.createElement('small'); s.textContent = 'のコメント'; author.appendChild(s);
+    const s = document.createElement('small'); s.textContent = TXT.suffix; author.appendChild(s);
     comment.textContent = job.text;
     subtitle.textContent = job.reply || '';
     badge.classList.toggle('hide', !job.showAiBadge);

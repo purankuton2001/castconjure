@@ -16,7 +16,8 @@ test('ng filter blocks built-in words, urls, and real-person heuristics', () => 
   assert.equal(ng.check('NSFW please', [], 120), 'ng_word');
   assert.equal(ng.check('see https://example.com', [], 120), 'url');
   assert.equal(ng.check('田中さんが踊る', [], 120), 'real_person');
-  assert.equal(ng.check('Taylor Swift dancing', [], 120), 'real_person');
+  assert.equal(ng.check('Taylor Swift dancing', [], 120), 'ip'); // listed idol wins over the name heuristic
+  assert.equal(ng.check('Emily Carter dancing', [], 120), 'real_person');
   assert.equal(ng.check('@someone hi', [], 120), 'real_person');
   assert.equal(ng.check('大統領が来る', [], 120), 'ng_word');
   assert.equal(ng.check('x'.repeat(200), [], 120), 'too_long');
@@ -79,6 +80,8 @@ test('reply mock + default system prompt', async () => {
   const r = await generateReply({ persona, author: 'taro', comment: '踊って' });
   assert.equal(r.provider, 'mock');
   assert.match(r.text, /^taroさん、/);
+  assert.equal((await generateReply({ persona, author: 'mika', comment: 'dance!!' })).text, "mika, let's do it!");
+  assert.equal((await generateReply({ persona, author: 'yujin', comment: '춤춰줘' })).text, 'yujin, 해보자!');
   assert.ok([...r.text].length <= 30);
   assert.match(defaultSystemPrompt(persona), /白詰 ゆい/);
 });
@@ -87,4 +90,26 @@ test('ng filter: allowNames skips the honorific heuristic but keeps the blocklis
   assert.equal(ng.check('taroさん、やってみよ！', [], 200, { allowNames: true }), null);
   assert.equal(ng.check('taroさん、やってみよ！', [], 200), 'real_person');
   assert.equal(ng.check('taroさん、エロいね', [], 200, { allowNames: true }), 'ng_word');
+});
+
+test('ip guard (F-16): real idols, groups, anime characters, likeness and choreo requests', () => {
+  assert.equal(ng.check('dance like Jennie', [], 200), 'ip');
+  assert.equal(ng.check('BTS dance please', [], 200), 'ip');
+  assert.equal(ng.check('뉴진스 춤 춰줘', [], 200), 'ip');
+  assert.equal(ng.check('初音ミクの格好して', [], 200), 'ip');
+  assert.equal(ng.check('cosplay as Nezuko', [], 200), 'ip');
+  assert.equal(ng.check('do the choreo from that song', [], 200), 'ip');
+  assert.equal(ng.check('Jennieに似せて', [], 200), 'ip');
+  // word boundaries: "give" must not hit IVE, "power" alone is fine only as a word
+  assert.equal(ng.check('give me a wave', [], 200), null);
+  assert.equal(ng.check('dance!!', [], 200), null);
+  assert.equal(ng.check('eat ramen', [], 200), null);
+  assert.equal(ng.check("let's go to the beach", [], 200), null);
+  assert.ok(ng.ip.size > 200);
+});
+
+test('prompt builder: anime style line', () => {
+  const s = { ...defaultSettings(), worldPrompt: '' };
+  assert.match(buildPrompt({ comment: 'x', refCount: 0, hasVoice: false }, s, { ...persona, style: 'anime' }), /2D anime style/);
+  assert.match(buildPrompt({ comment: 'x', refCount: 0, hasVoice: false }, s, persona), /Photoreal/);
 });

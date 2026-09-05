@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR } from '../config.js';
 import type { FilterReason } from '../types.js';
+import { IpGuard } from './ipguard.js';
 
 /**
  * NG filter. Blocks: URLs, blocklisted words (built-in + streamer), and
@@ -10,6 +11,7 @@ import type { FilterReason } from '../types.js';
  */
 export class NgFilter {
   private builtin: string[] = [];
+  readonly ip = new IpGuard();
 
   constructor(listFile = path.join(DATA_DIR, 'ng-words.txt')) {
     try {
@@ -34,6 +36,7 @@ export class NgFilter {
     if (!raw) return 'empty';
     if (raw.length > maxChars) return 'too_long';
     if (/https?:\/\/|www\.|\.(com|net|jp|io|dev|app)\b/i.test(raw)) return 'url';
+    if (this.ip.match(raw)) return 'ip';
     const norm = normalize(raw);
     for (const w of this.builtin) if (w && norm.includes(w)) return 'ng_word';
     for (const w of extraWords.map(normalize)) if (w && norm.includes(w)) return 'ng_word';

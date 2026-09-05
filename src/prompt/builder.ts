@@ -21,6 +21,11 @@ export function buildPrompt(input: PromptInput, s: Settings, persona: Persona | 
     const refs = input.refCount > 0 ? ` (appearance exactly as in Image 1${input.refCount > 1 ? `, outfit as in Image 2` : ''}${input.refCount > 2 ? `, setting as in Image 3` : ''})` : '';
     parts.push(`The main character is "${persona.nameEn || persona.name}"${refs}: ${persona.appearance.summary}`.replace(/\.?$/, '.'));
     if (persona.appearance.signatures?.length) parts.push(`Always visible: ${persona.appearance.signatures.join(', ')}.`);
+    parts.push(
+      persona.style === 'anime'
+        ? '2D anime style, clean cel shading, consistent character design across the whole clip, adult proportions.'
+        : 'Photoreal, natural skin texture, handheld 35mm look.',
+    );
     if (persona.forbidden.length) parts.push(`Never: ${persona.forbidden.join('; ')}.`);
   }
 
