@@ -17,7 +17,8 @@
     "gen:once": "tsx src/cli/gen-once.ts",
     "probe": "tsx src/cli/probe.ts",
     "probe:voice": "tsx src/cli/probe-voice.ts",
-    "idle": "tsx src/cli/idle-pool.ts"
+    "idle": "tsx src/cli/idle-pool.ts",
+    "record:live": "node scripts/record-live.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^22.7.0",
     "@types/ws": "^8.5.12",
+    "playwright": "^1.63.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }
