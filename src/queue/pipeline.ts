@@ -489,7 +489,7 @@ export class Pipeline {
     if (s.instantReply && job.reply) {
       this.metrics.log('ack', { job: job.id, sinceReceivedMs: Date.now() - job.message.receivedAt });
       if (!this.current) this.broadcast({ type: 'ack', job: this.toPublic(job) });
-      if (s.audio) {
+      if (!s.audio) {
         const tTts = Date.now();
         fs.mkdirSync(CLIPS_DIR, { recursive: true });
         const file = `${job.id}.reply.mp3`;
@@ -589,6 +589,16 @@ export class Pipeline {
     this.broadcast({ type: 'play', job: this.toPublic(next) });
     this.playTimer = setTimeout(() => this.playbackEnded(next.id, 'timeout'), (this.settings.durationSec + 4) * 1000);
     this.pushState();
+  }
+
+  /** Dev: put a finished job back on screen (overlay/recording tests without generating). */
+  replay(jobId: string): boolean {
+    const job = this.jobs.get(jobId);
+    if (!job || !job.result || this.current) return false;
+    job.status = 'ready';
+    this.metrics.log('replay', { job: jobId });
+    this.pumpPlay();
+    return true;
   }
 
   playbackEnded(jobId: string, source = 'overlay'): void {

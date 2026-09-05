@@ -173,7 +173,7 @@
   function stopReaction() {
     clearTimeout(cardTimer);
     reaction.classList.remove('on'); meta.classList.remove('on'); wait.classList.remove('on');
-    setTimeout(() => { if (!current) { video.pause(); video.removeAttribute('src'); video.load(); card.classList.remove('on'); } }, 350);
+    setTimeout(() => { if (!current) { video.classList.remove('on'); video.pause(); video.removeAttribute('src'); video.load(); card.classList.remove('on'); } }, 350);
   }
   function handle(m) {
     if (m.type === 'idlePool') { setIdlePool(m); return; }
@@ -192,7 +192,7 @@
         video.src = m.job.clipUrl;
         video.onended = () => ended(m.job.id);
         video.onerror = () => ended(m.job.id);
-        video.play().then(() => { reaction.classList.add('on'); meta.classList.add('on'); }).catch(() => ended(m.job.id));
+        video.play().then(() => { video.classList.add('on'); reaction.classList.add('on'); meta.classList.add('on'); }).catch(() => ended(m.job.id));
       }
     } else if (m.type === 'ack') {
       // instant acknowledgement: subtitle (+ spoken line) over the idle loop while the clip generates
