@@ -17,9 +17,9 @@
   .pos-tr { right: var(--pad); top: var(--pad); }
   .pos-tl { left: var(--pad); top: var(--pad); }
   .pos-c  { left: 50%; top: 50%; transform: translate(-50%,-50%); }
-  .pos-full { inset: 0; width: 100vw; height: 100vh; aspect-ratio: auto; }
+  #stage.pos-full { inset: 0; width: 100vw; height: 100vh; aspect-ratio: auto; transform: none; }
   #frame { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; background: transparent; }
-  .pos-full #frame { border-radius: 0; }
+  #stage.pos-full #frame { border-radius: 0; }
   #frame.framed { background: rgba(10,10,16,.85); box-shadow: 0 12px 40px rgba(0,0,0,.45), 0 0 0 2px rgba(255,255,255,.08); }
   /* two layers: idle (always on, two videos crossfading) and reaction (on top) */
   .layer { position: absolute; inset: 0; }

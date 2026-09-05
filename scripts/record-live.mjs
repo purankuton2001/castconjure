@@ -44,13 +44,13 @@ const tComment = Date.now();
 const posted = await api('/api/comment', { text: comment, author });
 console.log('comment posted', posted);
 
-let tGen = 0, tPlay = 0, tEnd = 0, reply = '';
+let tGen = 0, tPlay = 0, tEnd = 0, reply = '', clipUrl = '';
 for (let i = 0; i < 600; i++) {
   await page.waitForTimeout(200);
   const s = (await api('/api/state')).state;
   const gen = s.queue.find((j) => j.status === 'generating');
   if (gen && !tGen) tGen = Date.now();
-  if (s.current && !tPlay) { tPlay = Date.now(); reply = s.current.reply || ''; console.log(`playing after ${((tPlay - tComment) / 1000).toFixed(1)}s reply="${reply}"`); }
+  if (s.current && !tPlay) { tPlay = Date.now(); reply = s.current.reply || ''; clipUrl = s.current.clipUrl || ''; console.log(`playing after ${((tPlay - tComment) / 1000).toFixed(1)}s reply="${reply}" clip=${clipUrl}`); }
   if (tPlay && !s.current) { tEnd = Date.now(); break; }
   const failed = s.recent.find((j) => j.status === 'failed');
   if (failed && !tPlay) { console.error('generation failed:', failed); break; }
@@ -68,6 +68,10 @@ fs.mkdirSync(path.dirname(out), { recursive: true });
 const cap = ['scripts/burn-captions.py', '--in', webm, '--out', out, '--comment', comment, '--author', author, '--t-comment', rel(tComment), '--latency', latency];
 if (tGen) cap.push('--t-gen', rel(tGen));
 if (tPlay) cap.push('--t-play', rel(tPlay));
+if (reply) cap.push('--reply', reply);
+// recordings are silent: mix the reaction clip's own audio in at playback start
+const clipFile = clipUrl.startsWith('/clips/') ? path.resolve('data/clips', path.basename(clipUrl)) : '';
+if (clipFile && fs.existsSync(clipFile)) cap.push('--audio', clipFile);
 const r = spawnSync('python3', cap, { stdio: 'inherit', cwd: path.resolve(path.dirname(new URL(import.meta.url).pathname), '..') });
 if (r.status !== 0) throw new Error('burn-captions failed');
 console.log(JSON.stringify({ out, comment, author, reply, latencySec: latency, generatingAt: tGen ? rel(tGen) : null, playAt: tPlay ? rel(tPlay) : null, endAt: tEnd ? rel(tEnd) : null, durationSec: rel(Date.now()) }, null, 2));
