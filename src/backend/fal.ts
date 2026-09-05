@@ -61,26 +61,33 @@ export class FalBackend implements GenerateBackend {
   }
 
   estimateCostUsd(req: GenerateRequest): number {
-    const n = req.referenceImageUrls.length;
-    if (n > 0) return req.durationSec * pricing.r2vPerSec + n * pricing.r2vPerImage;
+    const mode = req.mode ?? (req.referenceImageUrls.length > 0 ? 'r2v' : 'i2v');
+    if (mode === 'i2v-turbo') return req.durationSec * (req.resolution === '768p' ? pricing.turbo768 : pricing.turbo480);
+    if (mode === 'r2v' && req.referenceImageUrls.length > 0) return req.durationSec * pricing.r2vPerSec + req.referenceImageUrls.length * pricing.r2vPerImage;
     return req.durationSec * (req.resolution === '768p' ? pricing.t2v768 : pricing.t2v480);
   }
 
   async generate(req: GenerateRequest, signal: AbortSignal): Promise<GenerateResult> {
     const t0 = Date.now();
-    const useRef = req.referenceImageUrls.length > 0;
-    const model = useRef ? secrets.falR2vModel : secrets.falT2vModel;
+    const mode = req.mode ?? (req.referenceImageUrls.length > 0 ? 'r2v' : 'i2v');
+    const i2v = (mode === 'i2v' || mode === 'i2v-turbo') && !!req.firstFrameUrl;
+    const useRef = !i2v && req.referenceImageUrls.length > 0;
+    const model = i2v ? (mode === 'i2v-turbo' ? secrets.falI2vTurboModel : secrets.falI2vModel) : useRef ? secrets.falR2vModel : secrets.falT2vModel;
     const input: Record<string, unknown> = {
       prompt: req.prompt,
       duration: req.durationSec,
       resolution: req.resolution === '768p' ? '768P' : '480P',
       prompt_expansion_mode: secrets.falPromptExpansion,
       enable_safety_checker: true,
-      aspect_ratio: '16:9',
     };
-    if (useRef) {
-      input.reference_image_urls = req.referenceImageUrls;
-      if (req.audio && req.referenceAudioUrl) input.reference_audio_urls = [req.referenceAudioUrl];
+    if (i2v) {
+      input.image_url = req.firstFrameUrl; // aspect ratio follows the frame (16:9 idle frame)
+    } else {
+      input.aspect_ratio = '16:9';
+      if (useRef) {
+        input.reference_image_urls = req.referenceImageUrls;
+        if (req.audio && req.referenceAudioUrl) input.reference_audio_urls = [req.referenceAudioUrl];
+      }
     }
     let timing: FalTiming | undefined;
     const body = await falQueue<{ video?: { url?: string }; expanded_prompt?: string; timings?: unknown; seed?: number }>(model, input, signal, this.key, { sync: secrets.falSync, timing: (t) => (timing = t) });
@@ -93,7 +100,7 @@ export class FalBackend implements GenerateBackend {
       costUsd: this.estimateCostUsd(req),
       backend: 'fal',
       expandedPrompt: body.expanded_prompt,
-      raw: { timings: body.timings, seed: body.seed, fal: timing, model },
+      raw: { timings: body.timings, seed: body.seed, fal: timing, model, mode: i2v ? mode : useRef ? 'r2v' : 't2v' },
     };
   }
 }

@@ -31,6 +31,7 @@ export const secrets = {
   falT2vModel: env('FAL_T2V_MODEL', 'minimax/h3-max/text-to-video'),
   falI2vModel: env('FAL_I2V_MODEL', 'minimax/h3-max/image-to-video'),
   falR2vModel: env('FAL_R2V_MODEL', 'minimax/h3-max/reference-to-video'),
+  falI2vTurboModel: env('FAL_I2V_TURBO_MODEL', 'minimax/h3-max-turbo/image-to-video'),
   falPromptExpansion: env('FAL_PROMPT_EXPANSION', 'balanced'),
   /** Cache generated clips locally so OBS never hits an expired CDN URL (done in the background; playback starts from the CDN URL). */
   cacheClips: envBool('CACHE_CLIPS', true),
@@ -71,6 +72,9 @@ export const pricing = {
   t2v768: envNum('PRICE_T2V_768P', 0.08),
   r2vPerSec: envNum('PRICE_R2V_PER_SEC', 0.08),
   r2vPerImage: envNum('PRICE_R2V_PER_IMAGE', 0.02),
+  /** H3 Max Turbo per-second price (fal page does not list it; assumed equal to H3 Max until verified on the invoice) */
+  turbo480: envNum('PRICE_TURBO_480P', 0.05),
+  turbo768: envNum('PRICE_TURBO_768P', 0.08),
 };
 
 export function defaultSettings(): Settings {
@@ -88,6 +92,7 @@ export function defaultSettings(): Settings {
     instantReply: envBool('INSTANT_REPLY', true),
     refMode: (env('REF_MODE', 'face+scene') as Settings['refMode']) || 'face+scene',
     voiceRef: envBool('VOICE_REF', true),
+    genMode: (env('GEN_MODE', 'i2v-turbo') as Settings['genMode']) || 'i2v-turbo',
     minIntervalSec: envNum('MIN_INTERVAL_SEC', 30),
     userCooldownSec: envNum('USER_COOLDOWN_SEC', 120),
     commandPrefix: env('COMMAND_PREFIX', ''),
@@ -144,5 +149,6 @@ export function sanitizeSettings(s: Settings): Settings {
     instantReply: s.instantReply !== false,
     refMode: (['face', 'face+scene', 'all'] as const).includes(s.refMode) ? s.refMode : 'face+scene',
     voiceRef: s.voiceRef !== false,
+    genMode: (['r2v', 'i2v', 'i2v-turbo'] as const).includes(s.genMode) ? s.genMode : 'i2v-turbo',
   };
 }

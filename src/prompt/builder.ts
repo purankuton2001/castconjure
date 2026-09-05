@@ -12,7 +12,7 @@ export interface PromptInput {
   action?: string;
   refCount: number;
   /** Kinds of the reference images in order (Image 1, 2, …). Defaults to face, full, scene. */
-  refKinds?: ('face' | 'full' | 'scene')[];
+  refKinds?: ('face' | 'full' | 'scene' | 'frame')[];
   hasVoice: boolean;
 }
 
@@ -22,9 +22,9 @@ export function buildPrompt(input: PromptInput, s: Settings, persona: Persona | 
   if (world) parts.push(world);
 
   if (persona) {
-    const kinds = (input.refKinds ?? (['face', 'full', 'scene'] as const).slice(0, input.refCount)).slice(0, input.refCount);
-    const label = { face: 'appearance exactly as in Image', full: 'outfit as in Image', scene: 'setting as in Image' } as const;
-    const refs = kinds.length ? ` (${kinds.map((k, i) => `${label[k]} ${i + 1}`).join(', ')})` : '';
+    const kinds = (input.refKinds ?? (['face', 'full', 'scene'] as const).slice(0, input.refCount)).slice(0, Math.max(input.refCount, input.refKinds?.includes('frame') ? 1 : 0));
+    const label = { face: 'appearance exactly as in Image', full: 'outfit as in Image', scene: 'setting as in Image', frame: 'exactly the person, outfit and room of the first frame' } as const;
+    const refs = kinds.length ? ` (${kinds.map((k, i) => (k === 'frame' ? label.frame : `${label[k]} ${i + 1}`)).join(', ')})` : '';
     parts.push(`The main character is "${persona.nameEn || persona.name}"${refs}: ${persona.appearance.summary}`.replace(/\.?$/, '.'));
     if (persona.appearance.signatures?.length) parts.push(`Always visible: ${persona.appearance.signatures.join(', ')}.`);
     parts.push(
@@ -37,7 +37,9 @@ export function buildPrompt(input: PromptInput, s: Settings, persona: Persona | 
 
   if (input.comment.trim()) parts.push(`A viewer commented: "${sanitizeComment(input.comment)}".`);
   parts.push(input.action?.trim() || `She acts out the request with her whole body, expressively, standing up if it helps.`);
-  if (input.refCount > 0 && input.comment.trim()) parts.push('The reference images define her appearance only, not her pose: she may stand up, move around and use the whole frame.');
+  if (input.refKinds?.includes('frame') && input.comment.trim()) parts.push('The first frame is where she starts; she may stand up, move around and use the whole frame, keeping the same look.');
+  else if (input.refCount > 0 && input.comment.trim()) parts.push('The reference images define her appearance only, not her pose: she may stand up, move around and use the whole frame.');
+  if (input.reply && !input.hasVoice && persona?.voice?.description) parts.push(`Her voice: ${persona.voice.description}.`);
   if (input.reply) {
     const lang = /[\uac00-\ud7a3]/.test(input.reply) ? 'Korean' : /[\u3040-\u30ff\u4e00-\u9fff]/.test(input.reply) ? 'Japanese' : 'English';
     parts.push(

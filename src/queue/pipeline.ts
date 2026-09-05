@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { pipeline as streamPipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
@@ -12,7 +13,7 @@ import { Selector } from '../filter/selector.js';
 import { MetricsLogger } from '../metrics/logger.js';
 import { buildIdlePrompt, buildPrompt } from '../prompt/builder.js';
 import { directAction, generateReply } from '../reply/llm.js';
-import { loadPersona, personaDir, personaUrl, referenceImageUris, referenceVoiceUri, savePersona } from '../persona/store.js';
+import { fileDataUri, loadPersona, personaDir, personaUrl, referenceImageUris, referenceVoiceUri, savePersona } from '../persona/store.js';
 import { detectLang, ttsToFile } from '../persona/voice.js';
 import type { ChatMessage, GenerateBackend, GenerateRequest, Job, Persona, PublicJob, PublicState, Settings, WsServerMessage } from '../types.js';
 
@@ -140,7 +141,27 @@ export class Pipeline {
 
   private request(prompt: string, audio = this.settings.audio, lang?: string): GenerateRequest {
     const r = this.refs(lang);
-    return { prompt, durationSec: this.settings.durationSec, resolution: this.settings.resolution, referenceImageUrls: r.images, referenceAudioUrl: r.voice, audio };
+    const mode = this.settings.genMode;
+    const frame = mode !== 'r2v' ? this.firstFrameUri() : undefined;
+    return { prompt, durationSec: this.settings.durationSec, resolution: this.settings.resolution, referenceImageUrls: frame ? [] : r.images, referenceAudioUrl: r.voice, firstFrameUrl: frame, mode: frame ? mode : 'r2v', audio };
+  }
+
+  /** 16:9 first frame for i2v modes: refs/frame.png, extracted from the idle pool (falls back to r2v when missing). */
+  private firstFrameUri(): string | undefined {
+    const p = this.persona;
+    if (!p) return undefined;
+    if (!p.references.frame) {
+      const first = p.idle?.clips.find((c) => c.kind === 'video' && c.file);
+      if (!first) return undefined;
+      const out = path.join(personaDir(p.id), 'refs', 'frame.png');
+      fs.mkdirSync(path.dirname(out), { recursive: true });
+      const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', path.join(personaDir(p.id), first.file), '-frames:v', '1', out]);
+      if (r.status !== 0 || !fs.existsSync(out)) return undefined;
+      p.references.frame = 'refs/frame.png';
+      savePersona(p);
+      this.log('info', `first frame for i2v extracted from ${first.file}`);
+    }
+    return fileDataUri(p.id, p.references.frame);
   }
 
   /** Cost of one reaction clip with the current persona/backend. */
@@ -454,7 +475,14 @@ export class Pipeline {
     }
     const lang = job.reply ? detectLang(job.reply) : detectLang(job.message.text);
     const refs = this.refs(lang);
-    job.prompt = buildPrompt({ comment: job.message.text, reply: job.reply, action: job.action, refCount: refs.images.length, refKinds: refs.kinds, hasVoice: !!refs.voice }, s, this.persona);
+    const useFrame = s.genMode !== 'r2v' && !!this.firstFrameUri();
+    job.prompt = buildPrompt(
+      useFrame
+        ? { comment: job.message.text, reply: job.reply, action: job.action, refCount: 1, refKinds: ['frame'], hasVoice: false }
+        : { comment: job.message.text, reply: job.reply, action: job.action, refCount: refs.images.length, refKinds: refs.kinds, hasVoice: !!refs.voice },
+      s,
+      this.persona,
+    );
     // Instant acknowledgement (perceived latency): subtitle right now; TTS of the line runs in parallel with
     // generation and is pushed as a second 'ack' when ready. Generation is never delayed by it.
     if (s.instantReply && job.reply) {
@@ -476,7 +504,7 @@ export class Pipeline {
       }
     }
     const req = this.request(job.prompt, this.settings.audio, lang);
-    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, refImages: refs.images.length, refMode: s.refMode, voice: !!refs.voice && s.audio, lang, style: this.persona?.style ?? 'photoreal', estimateUsd: estimate, promptLen: job.prompt.length });
+    this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, genMode: useFrame ? s.genMode : 'r2v', refImages: useFrame ? 0 : refs.images.length, refMode: s.refMode, voice: !useFrame && !!refs.voice && s.audio, lang, style: this.persona?.style ?? 'photoreal', estimateUsd: estimate, promptLen: job.prompt.length });
     if (!this.current) this.broadcast({ type: 'generating', job: this.toPublic(job) });
     this.pushState();
 

@@ -39,6 +39,8 @@ export interface Persona {
     face?: string;
     full?: string;
     scene?: string;
+    /** 16:9 first-frame image for i2v modes (a frame of the idle pool), refs/frame.png */
+    frame?: string;
     /** Primary reference voice (the persona's default language). */
     voice?: string;
     /** Per-language reference voices (F-11 multilingual), e.g. { en: 'voice.en.mp3', ko: 'voice.ko.mp3' }. */
@@ -93,6 +95,13 @@ export interface Settings {
   refMode: 'face' | 'face+scene' | 'all';
   /** Send the reference voice (voice consistency, ≈ +6 s). Off = H3 picks a voice per clip. */
   voiceRef: boolean;
+  /**
+   * How reaction clips are generated:
+   *  r2v        reference-to-video: 1–3 reference images (+ voice) — best consistency, ≈ 9–13 s
+   *  i2v        image-to-video from a frame of the idle pool — seamless start, ≈ 3–4 s, no reference voice
+   *  i2v-turbo  same with H3 Max Turbo — fastest, ≈ 3–5 s
+   */
+  genMode: 'r2v' | 'i2v' | 'i2v-turbo';
   /** Minimum seconds between two generations (global rate limit). */
   minIntervalSec: number;
   /** Seconds a single user must wait before another of their comments is taken. */
@@ -135,6 +144,10 @@ export interface GenerateRequest {
   referenceImageUrls: string[];
   /** Reference voice (data URI / URL), passed as reference_audio_urls when audio is on. */
   referenceAudioUrl?: string;
+  /** First frame (data URI / URL) for image-to-video modes. */
+  firstFrameUrl?: string;
+  /** Generation mode override (defaults to r2v when reference images are present). */
+  mode?: 'r2v' | 'i2v' | 'i2v-turbo';
   audio: boolean;
 }
 

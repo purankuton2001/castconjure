@@ -205,7 +205,12 @@
           <div><label data-i18n="maxQueue">Max queue</label><input type="number" name="maxQueue" min="1" max="50" /></div>
         </div>
         <div class="row">
-          <div><label data-i18n="refMode">Reference images per clip (speed ↔ consistency)</label>
+          <div><label data-i18n="genMode">Reaction clip mode</label>
+            <select name="genMode"><option value="i2v-turbo">i2v turbo — start from the idle frame (≈ 3–5 s, H3 Max Turbo)</option><option value="i2v">i2v — start from the idle frame (≈ 3–4 s, H3 Max)</option><option value="r2v">r2v — reference images + voice (≈ 9–13 s, most consistent)</option></select></div>
+          <div><label>&nbsp;</label><p class="muted" data-i18n="genModeNote">i2v starts every reaction from a frame of the idle loop, so the cut is seamless and it's 3× faster; the reference voice can't be sent in i2v, so her voice is described in the prompt instead.</p></div>
+        </div>
+        <div class="row">
+          <div><label data-i18n="refMode">Reference images per clip (r2v only; speed ↔ consistency)</label>
             <select name="refMode"><option value="face">face only (≈ 9 s)</option><option value="face+scene">face + scene (≈ 10 s)</option><option value="all">face + full body + scene (≈ 13 s)</option></select></div>
           <div><label>&nbsp;</label><div class="chk" style="margin:0"><input type="checkbox" name="voiceRef" id="voiceRef" /><label for="voiceRef" style="margin:0" data-i18n="voiceRefOpt">Send the reference voice (same voice every clip, ≈ +6 s)</label></div></div>
         </div>
@@ -256,7 +261,7 @@
     worldDefault: '既定の世界観プロンプト（英語）', tone: '話し方', tics: '口癖（カンマ区切り）', forbidden: '禁止事項（1 行 1 項目、英語。プロンプトの Never: に入る）', replySys: '返事モードのシステムプロンプト（空なら人格から自動生成）',
     savePersona: '人格を保存', idlePool: '待機映像プール', count: '本数', generate: '生成する', cancel: '中止', platform: 'プラットフォーム', videoId: 'YouTube 動画 ID',
     ytNote: 'YouTube: .env に YOUTUBE_API_KEY を入れ、配信を開始してから動画 ID を貼って Save → Start。', generation: '生成', resolution: '解像度', duration: '長さ（秒）', budget: 'セッション予算（USD）', maxQueue: 'キュー上限',
-    audioOpt: '音声ありで生成（推しの台詞。overlay に ?audio=1）', refMode: '1 クリップに送る参照画像（速度 ↔ 一貫性）', voiceRefOpt: '参照音声を送る（毎回同じ声、約 +6 秒）', instantOpt: '即時返事（クリップ生成中に字幕と台詞音声を約 1 秒で出す）', badgeOpt: '「AI 生成」表記を出す', replyOpt: '返事モード（LLM が推しの一言をコメントの言語で返す。REPLY_PROVIDER）',
+    audioOpt: '音声ありで生成（推しの台詞。overlay に ?audio=1）', genMode: '反応クリップの生成方式', genModeNote: 'i2v は待機ループのフレームから始めるので継ぎ目がなく 3 倍速い。参照音声は渡せないので、声はプロンプトの説明で寄せる。', refMode: '1 クリップに送る参照画像（速度 ↔ 一貫性）', voiceRefOpt: '参照音声を送る（毎回同じ声、約 +6 秒）', instantOpt: '即時返事（クリップ生成中に字幕と台詞音声を約 1 秒で出す）', badgeOpt: '「AI 生成」表記を出す', replyOpt: '返事モード（LLM が推しの一言をコメントの言語で返す。REPLY_PROVIDER）',
     world: '世界観プロンプト（配信ごと）', worldPh: '空なら推しの既定の世界観', selection: '選定と安全', minInterval: '最小間隔（秒）', cooldown: '同一ユーザー冷却（秒）', maxChars: 'コメント最大文字数',
     prefix: 'コマンド接頭辞（空なら全コメント）', approveCmd: '承認コマンド（mod/owner）', approvalOpt: '承認モード（通したコメントだけ生成）', ngWords: '追加 NG ワード（カンマ区切り）',
     ipNote: '同梱：実在アイドル・グループ・アニメ／ゲームのキャラと作品名、「〇〇に似せて」「〇〇の振付」は黙って除外（data/ip-names.txt）。', saveSettings: '設定を保存',
