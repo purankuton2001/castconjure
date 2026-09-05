@@ -1,0 +1,72 @@
+/**
+ * Voice gacha: let H3 create the persona's voice (no TTS involved). Generates N 10-second clips of her
+ * introducing herself with different voice directions, extracts the audio, and lets you adopt one:
+ *   npm run voice:gacha -- --n 2                # generate candidates → data/personas/<id>/voice-gacha/
+ *   npm run voice:gacha -- --adopt 1            # use candidate 1 as the reference voice, clone it for TTS, test TTS
+ * Each candidate costs a 10 s reference-to-video clip (≈ $0.86). Adopt: voice-clone + one TTS call.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { loadSettings } from '../config.js';
+import { createBackend } from '../backend/index.js';
+import { buildPrompt } from '../prompt/builder.js';
+import { fileDataUri, loadPersona, personaDir, referenceImageUris, savePersona, seedTemplates } from '../persona/store.js';
+import { cloneVoice, generateVoice } from '../persona/voice.js';
+
+const args = process.argv.slice(2);
+const opt = (k: string, d = '') => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
+const s = loadSettings();
+seedTemplates();
+const persona = s.personaId ? loadPersona(s.personaId) : null;
+if (!persona) throw new Error('no persona');
+const dir = path.join(personaDir(persona.id), 'voice-gacha');
+fs.mkdirSync(dir, { recursive: true });
+
+const INTRO: Record<string, string> = {
+  ja: `こんばんは、${persona.name.replace(/\s/g, '')}です。今日も来てくれてありがとう。チャットに書いてくれたら、なんでも一回やってみるよ。うまくいかなかったら、一緒に笑って。`,
+  en: `Hi, I'm ${persona.nameEn ?? persona.name}. Thanks for coming tonight. Type it in chat and I'll try it — and if it goes wrong, we laugh together.`,
+};
+const DIRECTIONS = [
+  'a warm, slightly low, natural young female voice; relaxed pace; small laugh at the end',
+  'a bright, clear, energetic young female voice; a little fast; playful',
+  'a soft, breathy, gentle young female voice; intimate, close to the mic',
+  'a confident, mid-range female voice with a smile in it; crisp diction',
+];
+
+if (opt('adopt')) {
+  const i = Number(opt('adopt'));
+  const wav = path.join(dir, `${i}.wav`);
+  if (!fs.existsSync(wav)) throw new Error(`candidate ${i} not found (${wav})`);
+  fs.copyFileSync(wav, path.join(personaDir(persona.id), 'voice.wav'));
+  persona.references.voice = 'voice.wav';
+  persona.references.voices = {}; // one H3-native voice for every language
+  persona.voice = { ...(persona.voice ?? {}), source: 'h3' };
+  savePersona(persona);
+  console.log('reference voice set to voice-gacha candidate', i);
+  const uri = fileDataUri(persona.id, 'voice.wav')!;
+  const c = await cloneVoice(uri, persona.voice?.sampleLine ?? INTRO.ja);
+  persona.voice = { ...(persona.voice ?? {}), customVoiceId: c.voiceId };
+  savePersona(persona);
+  console.log('cloned for TTS: custom_voice_id =', c.voiceId, c.previewUrl ? `preview ${c.previewUrl}` : '');
+  const t = await generateVoice(persona.id, 'taro_k, let\'s do it! うまくいかなかったら笑って。', persona.voice?.description, 'test', c.voiceId);
+  console.log(`TTS test with the cloned voice → data/personas/${persona.id}/${t.rel} ($${t.costUsd.toFixed(2)})`);
+  process.exit(0);
+}
+
+const n = Number(opt('n', '2'));
+const lang = opt('lang', 'ja');
+const backend = createBackend(s.backend);
+const images = referenceImageUris(persona);
+for (let i = 1; i <= n; i++) {
+  const direction = DIRECTIONS[(i - 1) % DIRECTIONS.length];
+  const prompt = buildPrompt({ comment: '', action: `She sits facing the camera and introduces herself, speaking naturally and warmly for the whole clip. Her voice: ${direction}. She says, in ${lang === 'ja' ? 'Japanese' : 'English'}: "${INTRO[lang] ?? INTRO.ja}"`, refCount: images.length, hasVoice: false }, { ...s, audio: true, durationSec: 10 }, persona);
+  const t0 = Date.now();
+  const r = await backend.generate({ prompt, durationSec: 10, resolution: s.resolution, referenceImageUrls: images, audio: true }, new AbortController().signal);
+  const mp4 = path.join(dir, `${i}.mp4`);
+  fs.writeFileSync(mp4, Buffer.from(await (await fetch(r.clipUrl)).arrayBuffer()));
+  const wav = path.join(dir, `${i}.wav`);
+  spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', mp4, '-vn', '-ac', '1', '-ar', '24000', wav], { stdio: 'inherit' });
+  console.log(`candidate ${i}: ${direction}\n  ${mp4} (${((Date.now() - t0) / 1000).toFixed(1)}s, $${r.costUsd.toFixed(2)}) → ${wav}`);
+}
+console.log(`listen to data/personas/${persona.id}/voice-gacha/*.wav, then: npm run voice:gacha -- --adopt <n>`);

@@ -185,7 +185,7 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
           if (!cur) return json(res, { error: 'no persona' }, 400);
           const lang = ['en', 'ko', 'ja'].includes(String(body.lang)) ? String(body.lang) : 'ja';
           const text = String(body.text ?? '').trim() || (lang === 'ja' && cur.voice?.sampleLine) || VOICE_SAMPLES[lang];
-          const r = await generateVoice(cur.id, text, cur.voice?.description, lang);
+          const r = await generateVoice(cur.id, text, cur.voice?.description, lang, cur.voice?.customVoiceId);
           cur.references.voices = { ...(cur.references.voices ?? {}), [lang]: r.rel };
           if (!cur.references.voice || lang === 'ja') cur.references.voice = r.rel;
           if (lang === 'ja') cur.voice = { ...(cur.voice ?? {}), sampleLine: text };

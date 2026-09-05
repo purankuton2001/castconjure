@@ -17,6 +17,8 @@ ap.add_argument("--t-play", type=float, default=None); ap.add_argument("--latenc
 ap.add_argument("--cost", default="$0.46")
 ap.add_argument("--audio", default=None, help="reaction clip mp4 whose audio is mixed in at --t-play (recordings are silent)")
 ap.add_argument("--reply", default="", help="the persona's reply line, shown with the comment")
+ap.add_argument("--keep-audio", action="store_true", help="keep the source's own audio track (reaction clips)")
+ap.add_argument("--ack-audio", default=None, help="TTS of the instant reply, mixed in at --t-ack"); ap.add_argument("--t-ack", type=float, default=None)
 a = ap.parse_args()
 
 def font(size, bold=True):
@@ -51,6 +53,9 @@ add(bubble(a.author, a.comment), 24, 24, f"gte(t,{a.t_comment:.2f})")
 if a.t_gen is not None:
     end = a.t_play if a.t_play is not None else a.t_gen + 60
     add(pill("generating her reaction… (fal H3 Max, reference-to-video)", 24, (201, 191, 255, 255)), 24, 150, f"between(t,{a.t_gen:.2f},{end:.2f})")
+if a.t_ack is not None and a.reply:
+    end = a.t_play if a.t_play is not None else a.t_ack + 60
+    add(pill(f"she answers right away: “{a.reply}”  (subtitle + voice, TTS)", 24, (255, 230, 150, 255)), 24, 206, f"between(t,{a.t_ack:.2f},{end:.2f})")
 if a.t_play is not None:
     add(pill(f"on screen {a.latency}s after the comment  ·  480p · 5s · {a.cost}" + (f"  ·  she says: “{a.reply}”" if a.reply else ""), 24, (140, 240, 192, 255)), 24, 150, f"gte(t,{a.t_play:.2f})")
 badge = pill("castconjure · live recording, not edited · generated persona (AI)", 18, (255, 255, 255, 220), pad=(10, 6), bg=(0, 0, 0, 115))
@@ -63,9 +68,18 @@ for i, (_, x, y, en) in enumerate(layers):
     nxt = f"[v{i}]"
     chain.append(f"{prev}[{i + 1}:v]overlay={x}:{y}:enable='{en}'{nxt}"); prev = nxt
 maps = ["-map", prev]
+tracks = []
 if a.audio and a.t_play is not None:
-    ai = len(layers) + 1; inputs += ["-i", a.audio]; ms = int(a.t_play * 1000)
-    chain.append(f"[{ai}:a]adelay={ms}|{ms},apad[a]"); maps += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k", "-shortest"]
+    ai = len(layers) + 1 + len(tracks); inputs += ["-i", a.audio]; ms = int(a.t_play * 1000)
+    chain.append(f"[{ai}:a]adelay={ms}|{ms}[a{len(tracks)}]"); tracks.append(f"[a{len(tracks)}]")
+if a.ack_audio and a.t_ack is not None:
+    ai = len(layers) + 1 + len(tracks); inputs += ["-i", a.ack_audio]; ms = int(a.t_ack * 1000)
+    chain.append(f"[{ai}:a]adelay={ms}|{ms}[a{len(tracks)}]"); tracks.append(f"[a{len(tracks)}]")
+if a.keep_audio:
+    maps += ["-map", "0:a?", "-c:a", "aac", "-b:a", "160k"]
+elif tracks:
+    chain.append(f"{''.join(tracks)}amix=inputs={len(tracks)}:normalize=0,apad[a]" if len(tracks) > 1 else f"{tracks[0]}apad[a]")
+    maps += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k", "-shortest"]
 cmd = ["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chain), *maps, "-c:v", "libx264", "-crf", "19", "-pix_fmt", "yuv420p", "-movflags", "+faststart", a.out]
 subprocess.run(cmd, check=True)
 print("wrote", a.out)

@@ -449,24 +449,25 @@ export class Pipeline {
     const lang = job.reply ? detectLang(job.reply) : detectLang(job.message.text);
     const refs = this.refs(lang);
     job.prompt = buildPrompt({ comment: job.message.text, reply: job.reply, action: job.action, refCount: refs.images.length, hasVoice: !!refs.voice }, s, this.persona);
-    // Instant acknowledgement (perceived latency): subtitle now, spoken via TTS when audio is on; the clip follows.
+    // Instant acknowledgement (perceived latency): subtitle right now; TTS of the line runs in parallel with
+    // generation and is pushed as a second 'ack' when ready. Generation is never delayed by it.
     if (s.instantReply && job.reply) {
-      const tAck = Date.now();
+      this.metrics.log('ack', { job: job.id, sinceReceivedMs: Date.now() - job.message.receivedAt });
+      if (!this.current) this.broadcast({ type: 'ack', job: this.toPublic(job) });
       if (s.audio) {
-        try {
-          fs.mkdirSync(CLIPS_DIR, { recursive: true });
-          const file = `${job.id}.reply.mp3`;
-          const r = await ttsToFile(job.reply, path.join(CLIPS_DIR, file), this.persona?.voice?.description);
-          if (r) {
+        const tTts = Date.now();
+        fs.mkdirSync(CLIPS_DIR, { recursive: true });
+        const file = `${job.id}.reply.mp3`;
+        void ttsToFile(job.reply, path.join(CLIPS_DIR, file), this.persona?.voice?.description, this.persona?.voice?.customVoiceId)
+          .then((r) => {
+            if (!r) return;
             job.ackVoiceUrl = `/clips/${file}`;
             this.spentUsd += r.costUsd;
-          }
-        } catch (e) {
-          this.log('warn', `ack TTS failed: ${(e as Error).message}`);
-        }
+            this.metrics.log('ack_voice', { job: job.id, ttsMs: Date.now() - tTts, sinceReceivedMs: Date.now() - job.message.receivedAt });
+            if (job.status === 'generating' && !this.current) this.broadcast({ type: 'ack', job: this.toPublic(job) });
+          })
+          .catch((e) => this.log('warn', `ack TTS failed: ${(e as Error).message}`));
       }
-      this.metrics.log('ack', { job: job.id, sinceReceivedMs: Date.now() - job.message.receivedAt, ttsMs: Date.now() - tAck, voice: !!job.ackVoiceUrl });
-      if (!this.current) this.broadcast({ type: 'ack', job: this.toPublic(job) });
     }
     const req = this.request(job.prompt, this.settings.audio, lang);
     this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, refImages: refs.images.length, voice: !!refs.voice && s.audio, lang, style: this.persona?.style ?? 'photoreal', estimateUsd: estimate, promptLen: job.prompt.length });

@@ -23,7 +23,26 @@ export function detectLang(text: string): 'en' | 'ko' | 'ja' {
   return 'en';
 }
 
-export async function generateVoice(personaId: string, text: string, description?: string, lang = 'ja'): Promise<{ rel: string; costUsd: number; backend: 'fal' | 'mock' }> {
+function ttsInput(text: string, description?: string, voiceId?: string): Record<string, unknown> {
+  let extra: Record<string, unknown> = {};
+  try {
+    extra = JSON.parse(secrets.falTtsExtra) as Record<string, unknown>;
+  } catch {
+    /* ignore */
+  }
+  const input: Record<string, unknown> = { text, ...(description && !voiceId ? { voice_description: description } : {}), ...extra };
+  if (voiceId) input.voice_setting = { ...((extra.voice_setting as Record<string, unknown>) ?? {}), voice_id: voiceId };
+  return input;
+}
+
+/** Clone a voice from a ≥10 s sample (data URI / URL) → fal MiniMax custom_voice_id. */
+export async function cloneVoice(audioUrl: string, previewText?: string): Promise<{ voiceId: string; previewUrl?: string }> {
+  const out = await falQueue<{ custom_voice_id?: string; audio?: { url?: string } }>('fal-ai/minimax/voice-clone', { audio_url: audioUrl, noise_reduction: true, need_volume_normalization: true, ...(previewText ? { text: previewText } : {}) }, undefined, secrets.falKey, { sync: true });
+  if (!out.custom_voice_id) throw new Error(`voice-clone returned no custom_voice_id: ${JSON.stringify(out).slice(0, 200)}`);
+  return { voiceId: out.custom_voice_id, previewUrl: out.audio?.url };
+}
+
+export async function generateVoice(personaId: string, text: string, description?: string, lang = 'ja', voiceId?: string): Promise<{ rel: string; costUsd: number; backend: 'fal' | 'mock' }> {
   const dir = personaDir(personaId);
   fs.mkdirSync(dir, { recursive: true });
   const useFal = secrets.personaImages === 'fal' || (secrets.personaImages === 'auto' && !!secrets.falKey);
@@ -32,13 +51,7 @@ export async function generateVoice(personaId: string, text: string, description
     fs.writeFileSync(path.join(dir, rel), mockVoiceWav());
     return { rel, costUsd: 0, backend: 'mock' };
   }
-  let extra: Record<string, unknown> = {};
-  try {
-    extra = JSON.parse(secrets.falTtsExtra) as Record<string, unknown>;
-  } catch {
-    /* ignore */
-  }
-  const out = await falQueue<Record<string, unknown>>(secrets.falTtsModel, { text, ...(description ? { voice_description: description } : {}), ...extra });
+  const out = await falQueue<Record<string, unknown>>(secrets.falTtsModel, ttsInput(text, description, voiceId));
   const url = findAudioUrl(out);
   if (!url) throw new Error(`TTS returned no audio url: ${JSON.stringify(out).slice(0, 200)}`);
   const res = await fetch(url);
@@ -61,16 +74,10 @@ function findAudioUrl(o: unknown): string | undefined {
 }
 
 /** TTS of one line to a file (instant acknowledgement). Returns null on mock / no key. */
-export async function ttsToFile(text: string, outPath: string, description?: string): Promise<{ costUsd: number } | null> {
+export async function ttsToFile(text: string, outPath: string, description?: string, voiceId?: string): Promise<{ costUsd: number } | null> {
   const useFal = secrets.personaImages === 'fal' || (secrets.personaImages === 'auto' && !!secrets.falKey);
   if (!useFal) return null;
-  let extra: Record<string, unknown> = {};
-  try {
-    extra = JSON.parse(secrets.falTtsExtra) as Record<string, unknown>;
-  } catch {
-    /* ignore */
-  }
-  const out = await falQueue<Record<string, unknown>>(secrets.falTtsModel, { text, ...(description ? { voice_description: description } : {}), ...extra }, undefined, secrets.falKey, { sync: true });
+  const out = await falQueue<Record<string, unknown>>(secrets.falTtsModel, ttsInput(text, description, voiceId), undefined, secrets.falKey, { sync: true });
   const url = findAudioUrl(out);
   if (!url) return null;
   const res = await fetch(url);

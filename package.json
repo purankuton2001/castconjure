@@ -19,7 +19,8 @@
     "probe:voice": "tsx src/cli/probe-voice.ts",
     "idle": "tsx src/cli/idle-pool.ts",
     "record:live": "node scripts/record-live.mjs",
-    "persona:import": "tsx src/cli/persona-import.ts"
+    "persona:import": "tsx src/cli/persona-import.ts",
+    "voice:gacha": "tsx src/cli/voice-gacha.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

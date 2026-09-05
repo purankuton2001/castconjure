@@ -59,7 +59,7 @@ export interface Persona {
     replyMaxChars?: number;
   };
   forbidden: string[];
-  voice?: { description?: string; sampleLine?: string };
+  voice?: { description?: string; sampleLine?: string; /** fal MiniMax cloned voice id (from the H3-generated reference) */ customVoiceId?: string; /** where the reference came from: h3 | tts */ source?: 'h3' | 'tts' };
   replySystemPrompt?: string;
   idle?: { clips: IdleClip[]; prompts?: string[] };
 }
