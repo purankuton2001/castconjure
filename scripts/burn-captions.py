@@ -34,7 +34,7 @@ layers = []  # (png, x, y, enable)
 def add(img, x, y, enable):
     p = os.path.join(tmp, f"c{len(layers)}.png"); img.save(p); layers.append((p, x, y, enable))
 
-add(pill(f"chat ›  {a.author}: {a.comment}", 28, (255, 255, 255, 255)), 24, 24, f"gte(t,{a.t_comment:.2f})")
+add(pill(f"chat · {a.author}: {a.comment}", 28, (255, 255, 255, 255)), 24, 24, f"gte(t,{a.t_comment:.2f})")
 if a.t_gen is not None:
     end = a.t_play if a.t_play is not None else a.t_gen + 60
     add(pill("generating…", 22, (201, 191, 255, 255)), 24, 84, f"between(t,{a.t_gen:.2f},{end:.2f})")
