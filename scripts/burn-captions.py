@@ -23,6 +23,7 @@ ap.add_argument("--t-comment", type=float, default=None); ap.add_argument("--t-g
 ap.add_argument("--t-play", type=float, default=None); ap.add_argument("--latency", default="?"); ap.add_argument("--cost", default="$0.25")
 ap.add_argument("--audio", default=None); ap.add_argument("--ack-audio", default=None); ap.add_argument("--t-ack", type=float, default=None)
 ap.add_argument("--keep-audio", action="store_true")
+ap.add_argument("--minimal", action="store_true", help="app-demo layout: only a small latency pill inside the overlay region + badge")
 a = ap.parse_args()
 
 if a.events:
@@ -60,11 +61,20 @@ layers = []  # (png, x, y, enable)
 def add(img, x, y, enable):
     p = os.path.join(tmp, f"c{len(layers)}.png"); img.save(p); layers.append((p, x, y, enable))
 
+OVX, OVY, OVW, OVH = 16, 48, 800, 450  # overlay region in public/demo.html
 dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", a.src], capture_output=True, text=True).stdout.strip() or "0")
 first_tc = events[0].get("tComment")
-if first_tc is not None and first_tc > 0.5:
+if a.minimal:
+    for i, e in enumerate(events):
+        tp = e.get("tPlay"); nxt = events[i + 1].get("tComment") if i + 1 < len(events) else None
+        until = nxt if nxt is not None else dur + 1
+        if tp is not None:
+            add(pill(f"on screen {e.get('latency', '?')}s after the comment  ·  {e.get('cost', '$0.25')}", 16, (140, 240, 192, 255), pad=(10, 5)), OVX + 12, OVY + OVH - 40, f"between(t,{tp:.2f},{until:.2f})")
+    badge = pill("castconjure · live recording, not edited · generated persona (AI)", 14, (255, 255, 255, 220), pad=(8, 5), bg=(0, 0, 0, 115))
+    add(badge, OVX + OVW - badge.width - 12, OVY + 10, "1")
+if not a.minimal and first_tc is not None and first_tc > 0.5:
     add(pill("waiting for chat…  (idle loop, pre-generated)", 22, (200, 200, 215, 255)), 24, 24, f"lt(t,{first_tc:.2f})")
-for i, e in enumerate(events):
+for i, e in (enumerate(events) if not a.minimal else []):
     tc = e.get("tComment"); tg = e.get("tGen"); tp = e.get("tPlay"); ta = e.get("tAck")
     nxt = events[i + 1].get("tComment") if i + 1 < len(events) else None
     until = nxt if nxt is not None else dur + 1
@@ -76,8 +86,9 @@ for i, e in enumerate(events):
         add(pill(f"she answers right away: “{e['reply']}”  (subtitle + cloned voice)", 24, (255, 230, 150, 255)), 24, 206, f"between(t,{ta:.2f},{(tp if tp is not None else ta + 60):.2f})")
     if tp is not None:
         add(pill(f"on screen {e.get('latency', '?')}s after the comment  ·  480p · 5s · {e.get('cost', '$0.25')}" + (f"  ·  she says: “{e['reply']}”" if e.get("reply") else ""), 24, (140, 240, 192, 255)), 24, 150, f"between(t,{tp:.2f},{until:.2f})")
-badge = pill("castconjure · live recording, not edited · generated persona (AI)", 18, (255, 255, 255, 220), pad=(10, 6), bg=(0, 0, 0, 115))
-add(badge, 1280 - badge.width - 24, 720 - badge.height - 24, "1")
+if not a.minimal:
+    badge = pill("castconjure · live recording, not edited · generated persona (AI)", 18, (255, 255, 255, 220), pad=(10, 6), bg=(0, 0, 0, 115))
+    add(badge, 1280 - badge.width - 24, 720 - badge.height - 24, "1")
 
 inputs = ["-i", a.src]
 for p, *_ in layers: inputs += ["-i", p]

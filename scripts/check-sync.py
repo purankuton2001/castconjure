@@ -15,14 +15,16 @@ from PIL import Image, ImageChops, ImageStat
 ap = argparse.ArgumentParser()
 ap.add_argument("--rec", required=True); ap.add_argument("--events", required=True)
 ap.add_argument("--window", type=float, default=1.5); ap.add_argument("--tol", type=float, default=0.12)
+ap.add_argument("--crop", default=None, help="x:y:w:h region of the recording that shows the overlay")
 a = ap.parse_args()
 FPS = 20; W, H = 192, 108
 CROP = (int(W * 0.2), int(H * 0.12), int(W * 0.8), int(H * 0.72))  # away from the caption/badge areas
 tmp = tempfile.mkdtemp(prefix="cc-sync-")
 
-def frames(src, start, dur, prefix):
+def frames(src, start, dur, prefix, crop=None):
     out = os.path.join(tmp, prefix + "%05d.png")
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{max(0, start):.3f}", "-t", f"{dur:.3f}", "-i", src, "-vf", f"fps={FPS},scale={W}:{H}", out], check=True)
+    vf = (f"crop={crop.split(':')[2]}:{crop.split(':')[3]}:{crop.split(':')[0]}:{crop.split(':')[1]}," if crop else "") + f"fps={FPS},scale={W}:{H}"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{max(0, start):.3f}", "-t", f"{dur:.3f}", "-i", src, "-vf", vf, out], check=True)
     files = sorted(f for f in os.listdir(tmp) if f.startswith(prefix))
     return [Image.open(os.path.join(tmp, f)).convert("L").crop(CROP) for f in files]
 
@@ -51,7 +53,7 @@ for n, e in enumerate(events):
     tp = float(e["tPlay"])
     clip = frames(e["audio"], 0, 5.2, f"c{n}_")
     rec_start = max(0.0, tp - a.window - 0.5)
-    rec = frames(a.rec, rec_start, 5.2 + 2 * a.window + 1.0, f"r{n}_")
+    rec = frames(a.rec, rec_start, 5.2 + 2 * a.window + 1.0, f"r{n}_", a.crop)
     d_early, c1 = best_offset(rec, rec_start, clip, tp, 0.3, 2.3)
     d_late, c2 = best_offset(rec, rec_start, clip, tp, 2.6, 4.8)
     mx = max(abs(d_early), abs(d_late)); worst = max(worst, mx)

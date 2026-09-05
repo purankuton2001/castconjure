@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>castconjure — app demo</title>
+<style>
+  :root { --bg:#0f1117; --panel:#171a23; --line:#262a36; --fg:#e8e9ee; --mut:#8b90a0; --acc:#7c5cff; --ok:#3ecf8e; }
+  html, body { margin:0; width:1280px; height:720px; overflow:hidden; background:var(--bg); color:var(--fg); font: 13px/1.4 system-ui, "Hiragino Sans", "Noto Sans JP", "Noto Sans KR", sans-serif; }
+  header { position:absolute; left:16px; top:0; height:40px; right:16px; display:flex; align-items:center; gap:12px; color:var(--mut); }
+  header b { color:var(--fg); font-size:15px; letter-spacing:.02em; }
+  .tag { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); }
+  .tag.live { border-color:#ff3d3d; color:#ff6b6b; }
+  #ov { position:absolute; left:16px; top:48px; width:800px; height:450px; border-radius:8px; overflow:hidden; background:#000; border:1px solid var(--line); }
+  #ov iframe { width:1280px; height:720px; border:0; transform:scale(0.625); transform-origin:0 0; }
+  #ov .label { position:absolute; left:10px; top:8px; font-size:11px; color:#ddd; background:rgba(0,0,0,.5); padding:2px 8px; border-radius:4px; }
+  #term { position:absolute; left:16px; top:508px; width:800px; height:196px; border-radius:8px; background:#0b0d13; border:1px solid var(--line); padding:10px 12px; box-sizing:border-box; font: 12px/1.45 Menlo, monospace; color:#cfd3dc; overflow:hidden; white-space:pre-wrap; }
+  #term .p { color:#8fd3a0; }
+  #term .d { color:#8b90a0; }
+  #cfg { position:absolute; left:832px; top:48px; width:432px; height:656px; border-radius:8px; overflow:hidden; background:var(--panel); border:1px solid var(--line); }
+  #cfg iframe { width:864px; height:1312px; border:0; transform:scale(0.5); transform-origin:0 0; }
+  #cfg .label { position:absolute; left:10px; bottom:8px; font-size:11px; color:#ddd; background:rgba(0,0,0,.6); padding:2px 8px; border-radius:4px; }
+</style>
+</head>
+<body>
+<header><b>castconjure</b><span class="tag live">LIVE DEMO</span><span>real app, recorded end-to-end · nothing pre-rendered</span><span style="margin-left:auto" id="clock"></span></header>
+<div id="ov"><iframe id="ovf" title="overlay"></iframe><span class="label">OBS browser source — /overlay</span></div>
+<div id="term"><span class="p">~/castconjure $</span> </div>
+<div id="cfg"><iframe id="cfgf" title="control panel"></iframe><span class="label">control panel — http://127.0.0.1:8788/</span></div>
+<script>
+  const term = document.getElementById('term');
+  window.termType = async (text, ms = 45) => { for (const ch of text) { term.append(ch); await new Promise(r => setTimeout(r, ms)); } };
+  window.termLine = (line, cls) => { const s = document.createElement('span'); if (cls) s.className = cls; s.textContent = line + '\n'; term.append(s); while (term.textContent.split('\n').length > 12) term.removeChild(term.firstChild); };
+  window.boot = (base) => { document.getElementById('ovf').src = base + '/overlay?lang=en'; document.getElementById('cfgf').src = base + '/?lang=en'; };
+  setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString(); }, 500);
+</script>
+</body>
+</html>
