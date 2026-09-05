@@ -88,7 +88,14 @@ function mock(req: ReplyRequest): string {
 
 function clean(s: string, max: number): string {
   let t = s.trim().replace(/^["「『]+|["」』]+$/g, '').replace(/\s+/g, ' ');
-  if ([...t].length > max) t = [...t].slice(0, max).join('') ;
+  // Latin text needs about twice the characters of CJK for the same length of speech; cut at a boundary, not mid-word
+  const latin = (t.match(/[A-Za-z]/g) ?? []).length > t.length * 0.5;
+  const limit = latin ? max * 2 : max;
+  if ([...t].length > limit) {
+    const head = [...t].slice(0, limit).join('');
+    const cut = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? '), head.lastIndexOf('。'), head.lastIndexOf('！'), head.lastIndexOf('？'), head.lastIndexOf(' '));
+    t = cut > limit * 0.5 ? head.slice(0, cut + 1).trim() : head;
+  }
   return t;
 }
 
