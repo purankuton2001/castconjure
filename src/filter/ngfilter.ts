@@ -11,16 +11,21 @@ import { IpGuard } from './ipguard.js';
  */
 export class NgFilter {
   private builtin: string[] = [];
+  private latin: RegExp[] = [];
   readonly ip = new IpGuard();
 
   constructor(listFile = path.join(DATA_DIR, 'ng-words.txt')) {
     try {
-      this.builtin = fs
+      const words = fs
         .readFileSync(listFile, 'utf8')
         .split('\n')
         .map((l) => l.replace(/#.*$/, '').trim())
-        .filter(Boolean)
-        .map(normalize);
+        .filter(Boolean);
+      // Latin words: word boundaries (so "something" never hits "meth"); CJK: substring after normalization
+      for (const w of words) {
+        if (/^[\x20-\x7e]+$/.test(w)) this.latin.push(new RegExp(`(^|[^a-z0-9])${w.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^a-z0-9])`, 'i'));
+        else this.builtin.push(normalize(w));
+      }
     } catch {
       this.builtin = [];
     }
@@ -38,8 +43,13 @@ export class NgFilter {
     if (/https?:\/\/|www\.|\.(com|net|jp|io|dev|app)\b/i.test(raw)) return 'url';
     if (this.ip.match(raw)) return 'ip';
     const norm = normalize(raw);
+    const lower = raw.normalize('NFKC').toLowerCase();
+    for (const re of this.latin) if (re.test(lower)) return 'ng_word';
     for (const w of this.builtin) if (w && norm.includes(w)) return 'ng_word';
-    for (const w of extraWords.map(normalize)) if (w && norm.includes(w)) return 'ng_word';
+    for (const w of extraWords) {
+      if (/^[\x20-\x7e]+$/.test(w)) { if (new RegExp(`(^|[^a-z0-9])${w.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^a-z0-9])`, 'i').test(lower)) return 'ng_word'; }
+      else if (normalize(w) && norm.includes(normalize(w))) return 'ng_word';
+    }
     if (!opts.allowNames && looksLikeRealPerson(raw)) return 'real_person';
     return null;
   }

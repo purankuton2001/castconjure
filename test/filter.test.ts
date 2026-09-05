@@ -23,6 +23,10 @@ test('ng filter blocks built-in words, urls, and real-person heuristics', () => 
   assert.equal(ng.check('x'.repeat(200), [], 120), 'too_long');
   assert.equal(ng.check('banana', ['banana'], 120), 'ng_word');
   assert.equal(ng.check('   ', [], 120), 'empty');
+  // Latin blocklist words match whole words only
+  assert.equal(ng.check('can you sing something?', [], 120), null);
+  assert.equal(ng.check('show me your skill', [], 120), null);
+  assert.equal(ng.check('meth is bad', [], 120), 'ng_word');
 });
 
 test('real-person heuristic', () => {

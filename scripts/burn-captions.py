@@ -31,21 +31,23 @@ else:
     events = [{"author": a.author, "comment": a.comment, "reply": a.reply, "tComment": a.t_comment, "tGen": a.t_gen, "tPlay": a.t_play,
                "latency": a.latency, "audio": a.audio, "ackAudio": a.ack_audio, "tAck": a.t_ack, "cost": a.cost}]
 
-def font(size, bold=True):
-    for p, i in [("/System/Library/Fonts/Hiragino Sans GB.ttc", 2 if bold else 0), ("/Library/Fonts/Arial Unicode.ttf", 0)]:
+def font(size, bold=True, text=""):
+    cands = [("/System/Library/Fonts/Hiragino Sans GB.ttc", 2 if bold else 0), ("/Library/Fonts/Arial Unicode.ttf", 0)]
+    if any("\uac00" <= ch <= "\ud7a3" for ch in text): cands.reverse()  # Hiragino has no Hangul
+    for p, i in cands:
         if os.path.exists(p):
             try: return ImageFont.truetype(p, size, index=i)
             except Exception: pass
     return ImageFont.load_default()
 
 def pill(text, size, fg, pad=(14, 8), bg=(0, 0, 0, 150)):
-    f = font(size); w = int(f.getbbox(text)[2]) + pad[0] * 2; h = size + pad[1] * 2 + 4
+    f = font(size, True, text); w = int(f.getbbox(text)[2]) + pad[0] * 2; h = size + pad[1] * 2 + 4
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
     d.rounded_rectangle([0, 0, w - 1, h - 1], radius=8, fill=bg); d.text((pad[0], pad[1]), text, font=f, fill=fg)
     return img
 
 def bubble(name, text):
-    fn, ft = font(26), font(40); head = f"{name}  ·  live chat"
+    fn, ft = font(26, True, name), font(40, True, text); head = f"{name}  ·  live chat"
     w = max(int(fn.getbbox(head)[2]) + 56, int(ft.getbbox(text)[2]) + 22) + 30; h = 26 + 40 + 44
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
     d.rounded_rectangle([0, 0, w - 1, h - 1], radius=16, fill=(0, 0, 0, 170)); d.rectangle([0, 10, 7, h - 10], fill=(124, 92, 255, 255))
