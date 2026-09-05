@@ -29,6 +29,7 @@ const W = 1280, H = 720;
 const api = async (p, body) => (await fetch(BASE + p, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })).json();
 
 const st = await api('/api/state');
+const seenIds = new Set([...st.state.recent, ...st.state.queue].map((j) => j.id));
 console.log(`persona=${st.state.persona?.name} idle=${st.state.persona?.idleClips} backend=${st.backend} audio=${st.settings.audio} reply=${st.settings.replyMode}`);
 await api('/api/control', { action: 'start' });
 
@@ -54,8 +55,8 @@ for (let i = 0; i < 600; i++) {
   if (ack && !tAck) { tAck = Date.now(); ackUrl = ack.ackVoiceUrl; console.log(`instant reply after ${((tAck - tComment) / 1000).toFixed(1)}s`); }
   if (s.current && !tPlay) { tPlay = Date.now(); reply = s.current.reply || ''; clipUrl = s.current.clipUrl || ''; console.log(`playing after ${((tPlay - tComment) / 1000).toFixed(1)}s reply="${reply}" clip=${clipUrl}`); }
   if (tPlay && !s.current) { tEnd = Date.now(); break; }
-  const failed = s.recent.find((j) => j.status === 'failed');
-  if (failed && !tPlay) { console.error('generation failed:', failed); break; }
+  const failed = s.recent.find((j) => j.status === 'failed' && !seenIds.has(j.id));
+  if (failed && !tPlay) { console.error('generation failed:', failed.error || failed); break; }
 }
 await page.waitForTimeout(3000);
 const video = page.video();
