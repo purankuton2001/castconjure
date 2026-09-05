@@ -46,7 +46,13 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
       if (req.method === 'GET') {
         if (p === '/' || p === '/config') return sendFile(res, path.join(PUBLIC, 'config.html'));
         if (p === '/overlay') return sendFile(res, path.join(PUBLIC, 'overlay.html'));
-        if (p.startsWith('/clips/')) return sendFile(res, path.join(CLIPS_DIR, path.basename(p)), true);
+        if (p.startsWith('/clips/')) {
+          const file = path.join(CLIPS_DIR, path.basename(p));
+          if (fs.existsSync(file)) return sendFile(res, file, true);
+          const remote = pipeline.remoteClipUrl(path.basename(p).replace(/\.mp4$/, ''));
+          if (remote) return proxy(res, remote);
+          return notFound(res);
+        }
         if (p.startsWith('/personas/')) {
           const rel = decodeURIComponent(p.slice('/personas/'.length));
           const abs = path.normalize(path.join(PERSONAS_DIR, rel));
@@ -261,6 +267,25 @@ function send(ws: WebSocket, msg: WsServerMessage): void {
 function json(res: http.ServerResponse, body: unknown, status = 200): void {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(body));
+}
+
+/** Stream a remote clip through this origin (used until the local cache file exists). */
+async function proxy(res: http.ServerResponse, url: string): Promise<void> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok || !r.body) return notFound(res);
+    res.writeHead(200, { 'Content-Type': r.headers.get('content-type') ?? 'video/mp4', ...(r.headers.get('content-length') ? { 'Content-Length': r.headers.get('content-length')! } : {}), 'Cache-Control': 'no-cache' });
+    const reader = r.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!res.write(value)) await new Promise((ok) => res.once('drain', ok));
+    }
+    res.end();
+  } catch {
+    if (!res.headersSent) notFound(res);
+    else res.end();
+  }
 }
 
 function notFound(res: http.ServerResponse): void {

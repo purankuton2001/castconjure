@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 /**
- * Record the live overlay reacting to a comment, for real: headless Chrome (Playwright, `channel: 'chrome'`)
- * opens /overlay, a comment is posted through the API, and the recording captures idle → generating →
- * reaction clip (with subtitle) → back to idle. Timestamps are measured from the API and burned in.
+ * Record the live overlay reacting to real comments: headless Chrome (Playwright, channel 'chrome') opens
+ * /overlay, comments are posted through the API one after another, and the recording captures
+ * idle → (subtitle) → generating → reaction clip → back to idle, for each comment.
+ * Audio: recordings are silent, so each reaction clip's own audio is mixed in at the exact frame where the
+ * clip appears in the recording (frame matching, scripts/align-clip.py), plus the instant-reply voice.
  *
- *   node scripts/record-live.mjs --comment "dance!!" --author taro_k --out docs/live.mp4
+ *   node scripts/record-live.mjs --comments "dance!!|eat ramen|make a heart|let's go to the beach" --out docs/live.mp4
  *
- * Needs: the server running on BASE (default http://127.0.0.1:8787), ffmpeg, Pillow, and Google Chrome installed
- * (Playwright uses it via channel 'chrome'; point Playwright's ffmpeg at the system one:
- *  ln -sf "$(which ffmpeg)" ~/Library/Caches/ms-playwright/ffmpeg-<version>/ffmpeg-mac  — or run `npx playwright install ffmpeg`).
- * Costs one reaction clip on the configured backend.
+ * Needs: server on BASE, ffmpeg, Pillow, Google Chrome. Costs one reaction clip per comment.
  */
 import { chromium } from 'playwright';
 import { spawnSync } from 'node:child_process';
@@ -20,18 +19,23 @@ import path from 'node:path';
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
 const BASE = opt('base', 'http://127.0.0.1:8787');
-const comment = opt('comment', 'dance!!');
-const author = opt('author', 'taro_k');
+const comments = (opt('comments', '') || opt('comment', 'dance!!')).split('|').map((s) => s.trim()).filter(Boolean);
+const authors = (opt('authors', 'taro_k|mika|ren|sora|kazu|yujin')).split('|');
 const out = path.resolve(opt('out', 'docs/live.mp4'));
 const lang = opt('lang', 'en');
+const gapMs = Number(opt('gap', '2500'));
 const W = 1280, H = 720;
+const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 
 const api = async (p, body) => (await fetch(BASE + p, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })).json();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const st = await api('/api/state');
-const seenIds = new Set([...st.state.recent, ...st.state.queue].map((j) => j.id));
-console.log(`persona=${st.state.persona?.name} idle=${st.state.persona?.idleClips} backend=${st.backend} audio=${st.settings.audio} reply=${st.settings.replyMode}`);
+console.log(`persona=${st.state.persona?.name} idle=${st.state.persona?.idleClips} backend=${st.backend} mode=${st.settings.genMode} audio=${st.settings.audio} reply=${st.settings.replyMode}`);
+const before = await api('/api/settings');
+await api('/api/settings', { minIntervalSec: 0, userCooldownSec: 0 });
 await api('/api/control', { action: 'start' });
+const seenIds = new Set([...st.state.recent, ...st.state.queue].map((j) => j.id));
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-live-'));
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--autoplay-policy=no-user-gesture-required'] });
@@ -39,47 +43,61 @@ const context = await browser.newContext({ viewport: { width: W, height: H }, re
 const tCtx = Date.now();
 const page = await context.newPage();
 await page.goto(`${BASE}/overlay?lang=${lang}`, { waitUntil: 'load' });
-await page.waitForTimeout(4000); // let the idle loop settle
+await sleep(4000); // let the idle loop settle
 
-const tComment = Date.now();
-const posted = await api('/api/comment', { text: comment, author });
-console.log('comment posted', posted);
-
-let tGen = 0, tPlay = 0, tEnd = 0, reply = '', clipUrl = '', jobId = '', tAck = 0, ackUrl = '';
-for (let i = 0; i < 600; i++) {
-  await page.waitForTimeout(200);
-  const s = (await api('/api/state')).state;
-  const gen = s.queue.find((j) => j.status === 'generating');
-  if (gen && !tGen) tGen = Date.now();
-  const ack = s.queue.find((j) => j.ackVoiceUrl) || (s.current && s.current.ackVoiceUrl ? s.current : null);
-  if (ack && !tAck) { tAck = Date.now(); ackUrl = ack.ackVoiceUrl; console.log(`instant reply after ${((tAck - tComment) / 1000).toFixed(1)}s`); }
-  if (s.current && !tPlay) { tPlay = Date.now(); reply = s.current.reply || ''; clipUrl = s.current.clipUrl || ''; jobId = s.current.id; console.log(`playing after ${((tPlay - tComment) / 1000).toFixed(1)}s reply="${reply}" clip=${clipUrl}`); }
-  if (tPlay && !s.current) { tEnd = Date.now(); break; }
-  const failed = s.recent.find((j) => j.status === 'failed' && !seenIds.has(j.id));
-  if (failed && !tPlay) { console.error('generation failed:', failed.error || failed); break; }
+const events = [];
+for (let i = 0; i < comments.length; i++) {
+  const comment = comments[i], author = authors[i % authors.length];
+  const tComment = Date.now();
+  const posted = await api('/api/comment', { text: comment, author });
+  if (!posted.ok) { console.log(`skip "${comment}": ${posted.error}`); continue; }
+  const ev = { author, comment, tComment, tGen: 0, tAck: 0, tPlay: 0, tEnd: 0, reply: '', jobId: '', clipUrl: '' };
+  for (let k = 0; k < 600; k++) {
+    await sleep(200);
+    const s = (await api('/api/state')).state;
+    const mine = (j) => j.text === comment && !seenIds.has(j.id);
+    const gen = s.queue.find((j) => mine(j) && j.status === 'generating');
+    if (gen && !ev.tGen) ev.tGen = Date.now();
+    const ack = [...s.queue, ...(s.current ? [s.current] : [])].find((j) => mine(j) && j.ackVoiceUrl);
+    if (ack && !ev.tAck) ev.tAck = Date.now();
+    if (s.current && mine(s.current) && !ev.tPlay) { ev.tPlay = Date.now(); ev.reply = s.current.reply || ''; ev.clipUrl = s.current.clipUrl || ''; ev.jobId = s.current.id; console.log(`${i + 1}/${comments.length} "${comment}" → on screen after ${((ev.tPlay - tComment) / 1000).toFixed(1)}s, reply "${ev.reply}"`); }
+    if (ev.tPlay && !(s.current && mine(s.current))) { ev.tEnd = Date.now(); break; }
+    const failed = s.recent.find((j) => mine(j) && j.status === 'failed');
+    if (failed && !ev.tPlay) { console.error(`generation failed for "${comment}":`, failed.error || ''); break; }
+  }
+  if (ev.tPlay) { events.push(ev); seenIds.add(ev.jobId); }
+  await sleep(gapMs);
 }
-await page.waitForTimeout(3000);
+await sleep(2000);
 const video = page.video();
 await context.close();
 await browser.close();
+await api('/api/settings', { minIntervalSec: before.minIntervalSec, userCooldownSec: before.userCooldownSec });
 const webm = await video.path();
 
-// burn in captions (Pillow + ffmpeg overlay; no drawtext dependency)
-const rel = (t) => ((t - tCtx) / 1000).toFixed(2);
-const latency = tPlay ? ((tPlay - tComment) / 1000).toFixed(1) : '?';
+// per event: cached clip file (playback used the CDN URL; the cache lands a few seconds later), then frame-align the clip
+const rel = (t) => (t - tCtx) / 1000;
+const out_events = [];
+for (const ev of events) {
+  let clipFile = path.resolve(ROOT, 'data/clips', `${ev.jobId}.mp4`);
+  for (let k = 0; !fs.existsSync(clipFile) && k < 40; k++) await sleep(500);
+  if (!fs.existsSync(clipFile) && /^https?:/.test(ev.clipUrl)) fs.writeFileSync(clipFile, Buffer.from(await (await fetch(ev.clipUrl)).arrayBuffer()));
+  let tPlay = rel(ev.tPlay);
+  if (fs.existsSync(clipFile)) {
+    const al = spawnSync('python3', [path.join(ROOT, 'scripts/align-clip.py'), '--rec', webm, '--clip', clipFile, '--approx', tPlay.toFixed(2)], { encoding: 'utf8' });
+    const v = parseFloat(al.stdout.trim());
+    if (Number.isFinite(v)) { console.log(`aligned "${ev.comment}": api ${tPlay.toFixed(2)}s → frames ${v.toFixed(2)}s`); tPlay = v; }
+  }
+  const ackFile = path.resolve(ROOT, 'data/clips', `${ev.jobId}.reply.mp3`);
+  out_events.push({
+    author: ev.author, comment: ev.comment, reply: ev.reply, latency: ((ev.tPlay - ev.tComment) / 1000).toFixed(1),
+    tComment: rel(ev.tComment), tGen: ev.tGen ? rel(ev.tGen) : null, tPlay, tAck: ev.tAck ? rel(ev.tAck) : null,
+    audio: fs.existsSync(clipFile) ? clipFile : null, ackAudio: fs.existsSync(ackFile) ? ackFile : null, cost: '$0.25',
+  });
+}
+const evFile = path.join(tmp, 'events.json');
+fs.writeFileSync(evFile, JSON.stringify(out_events, null, 2));
 fs.mkdirSync(path.dirname(out), { recursive: true });
-const cap = ['scripts/burn-captions.py', '--in', webm, '--out', out, '--comment', comment, '--author', author, '--t-comment', rel(tComment), '--latency', latency];
-if (tGen) cap.push('--t-gen', rel(tGen));
-if (tPlay) cap.push('--t-play', rel(tPlay));
-if (reply) cap.push('--reply', reply);
-// recordings are silent: mix the reaction clip's own audio in at playback start.
-// Playback uses the CDN URL; the local cache (data/clips/<job>.mp4) lands a few seconds later — wait for it, else download.
-let clipFile = jobId ? path.resolve('data/clips', `${jobId}.mp4`) : '';
-for (let k = 0; clipFile && !fs.existsSync(clipFile) && k < 40; k++) await new Promise((r) => setTimeout(r, 500));
-if (clipFile && !fs.existsSync(clipFile) && /^https?:/.test(clipUrl)) { fs.writeFileSync(clipFile, Buffer.from(await (await fetch(clipUrl)).arrayBuffer())); }
-if (clipFile && fs.existsSync(clipFile)) cap.push('--audio', clipFile); else console.warn('no clip file for audio mix');
-const ackFile = jobId ? path.resolve('data/clips', `${jobId}.reply.mp3`) : '';
-if (ackFile && fs.existsSync(ackFile)) cap.push('--ack-audio', ackFile, '--t-ack', rel(tAck || tComment + 2000));
-const r = spawnSync('python3', cap, { stdio: 'inherit', cwd: path.resolve(path.dirname(new URL(import.meta.url).pathname), '..') });
+const r = spawnSync('python3', [path.join(ROOT, 'scripts/burn-captions.py'), '--in', webm, '--out', out, '--events', evFile], { stdio: 'inherit' });
 if (r.status !== 0) throw new Error('burn-captions failed');
-console.log(JSON.stringify({ out, comment, author, reply, latencySec: latency, ackSec: tAck ? ((tAck - tComment) / 1000).toFixed(1) : null, generatingAt: tGen ? rel(tGen) : null, playAt: tPlay ? rel(tPlay) : null, endAt: tEnd ? rel(tEnd) : null, durationSec: rel(Date.now()) }, null, 2));
+console.log(JSON.stringify({ out, events: out_events.map((e) => ({ comment: e.comment, reply: e.reply, latency: e.latency, tPlay: e.tPlay.toFixed(2), audio: !!e.audio, ack: !!e.ackAudio })) }, null, 2));

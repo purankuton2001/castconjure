@@ -41,6 +41,7 @@ export class Pipeline {
   private persona: Persona | null = null;
   private refCache?: { id: string; images: string[]; kinds: ('face' | 'full' | 'scene')[]; voice?: string; voices: Record<string, string | undefined>; stamp: string };
   private idleJob?: { running: boolean; done: number; total: number; abort: AbortController };
+  private remoteClips = new Map<string, string>();
 
   running = false;
   paused = false;
@@ -513,9 +514,12 @@ export class Pipeline {
       job.genDoneAt = Date.now();
       job.result = result;
       job.status = 'ready';
-      // Play from the CDN URL right away; cache in the background for replays/records.
+      // Serve the clip same-origin right away (/clips/<job>.mp4 proxies the CDN until the cache lands):
+      // cross-origin video does not render in headless recordings, and same-origin is safer for OBS too.
       if (result.kind === 'video' && result.backend === 'fal' && secrets.cacheClips) {
         const remote = result.clipUrl;
+        this.remoteClips.set(job.id, remote);
+        job.localUrl = `/clips/${job.id}.mp4`;
         void this.cacheClip(job.id, remote).then((local) => {
           if (local !== remote) this.metrics.log('clip_cached', { job: job.id, local });
         });
@@ -556,7 +560,8 @@ export class Pipeline {
     try {
       fs.mkdirSync(CLIPS_DIR, { recursive: true });
       const file = `${jobId}.mp4`;
-      await downloadTo(url, path.join(CLIPS_DIR, file));
+      await downloadTo(url, path.join(CLIPS_DIR, file + '.part'));
+      fs.renameSync(path.join(CLIPS_DIR, file + '.part'), path.join(CLIPS_DIR, file));
       return `/clips/${file}`;
     } catch (e) {
       this.log('warn', `clip cache failed, using remote url: ${(e as Error).message}`);
@@ -599,6 +604,11 @@ export class Pipeline {
     this.pumpPlay();
   }
 
+  /** Remote (CDN) URL of a job's clip, for the same-origin proxy while the cache is still downloading. */
+  remoteClipUrl(jobId: string): string | undefined {
+    return this.remoteClips.get(jobId);
+  }
+
   currentVisual(): WsServerMessage {
     if (this.current) return { type: 'play', job: this.toPublic(this.current) };
     const gen = this.order.map((id) => this.jobs.get(id)!).find((j) => j.status === 'generating');
@@ -616,7 +626,7 @@ export class Pipeline {
       action: j.action,
       ackVoiceUrl: j.ackVoiceUrl,
       status: j.status,
-      clipUrl: j.result?.clipUrl,
+      clipUrl: j.localUrl ?? j.result?.clipUrl,
       kind: j.result?.kind,
       durationSec: this.settings.durationSec,
       showAiBadge: this.settings.showAiBadge,

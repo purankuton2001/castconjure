@@ -191,6 +191,8 @@ export interface Job {
   action?: string;
   /** TTS of the reply line for the instant acknowledgement (/clips/<job>.reply.mp3). */
   ackVoiceUrl?: string;
+  /** Same-origin URL for the clip (/clips/<job>.mp4), proxied from the CDN until cached. */
+  localUrl?: string;
   status: JobStatus;
   createdAt: number;
   approvedAt?: number;
