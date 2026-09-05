@@ -15,7 +15,7 @@ export interface ReplyRequest {
  * Returns the persona's one-line reply AND a concrete action for the video prompt ("director line"):
  * the comment "dance!!" becomes "she stands up and dances energetically…" so the clip actually shows it.
  */
-export async function generateReply(req: ReplyRequest, signal?: AbortSignal): Promise<{ text: string; action: string; provider: string; ms: number }> {
+export async function generateReply(req: ReplyRequest, signal?: AbortSignal, providerOverride?: string): Promise<{ text: string; action: string; provider: string; ms: number }> {
   const t0 = Date.now();
   const max = req.persona.personality.replyMaxChars ?? 30;
   const system = req.persona.replySystemPrompt || defaultSystemPrompt(req.persona);
@@ -23,19 +23,32 @@ export async function generateReply(req: ReplyRequest, signal?: AbortSignal): Pr
 2 行で出力してください。
 REPLY: そのコメントに応える、これから動く前の一言（${max} 字以内、コメントと同じ言語、絵文字なし）
 ACTION: 映像に映す具体的な動作を英語 1〜2 文で（体全体の動き、表情、必要なら立ち上がる。実在人物・既存作品・楽曲名は書かない）`;
-  const provider = secrets.replyProvider;
+  const provider = providerOverride ?? secrets.replyProvider;
   let text: string, action: string;
   if (provider === 'mock') {
     text = mock(req);
     action = directAction(req.comment);
   } else {
     const raw = provider === 'anthropic' ? await anthropic(system, user, signal) : provider === 'gemini' ? await gemini(system, user, signal) : await openai(system, user, signal);
-    const m = /REPLY:\s*(.+)/i.exec(raw);
-    const a = /ACTION:\s*(.+)/i.exec(raw);
-    text = m?.[1] ?? raw.split('\n')[0];
-    action = a?.[1]?.trim() || directAction(req.comment);
+    const parsed = parseReply(raw);
+    text = parsed.reply || raw.split('\n')[0];
+    action = parsed.action || directAction(req.comment);
   }
   return { text: clean(text, max), action, provider, ms: Date.now() - t0 };
+}
+
+/** Accepts {"reply","action"} JSON (possibly fenced) or "REPLY: … / ACTION: …" lines. */
+export function parseReply(raw: string): { reply?: string; action?: string } {
+  const txt = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
+  try {
+    const j = JSON.parse(txt) as { reply?: string; action?: string };
+    if (j && (j.reply || j.action)) return { reply: j.reply?.trim(), action: j.action?.trim() };
+  } catch {
+    /* not JSON */
+  }
+  const m = /\*{0,2}REPLY\*{0,2}\s*[:：]\s*\*{0,2}\s*([^\n]+)/i.exec(txt);
+  const a = /\*{0,2}ACTION\*{0,2}\s*[:：]\s*\*{0,2}\s*([^\n]+)/i.exec(txt);
+  return { reply: m?.[1]?.trim(), action: a?.[1]?.trim() };
 }
 
 /** Keyword director (used by the mock provider and as a fallback): comment → explicit full-body action. */
@@ -114,7 +127,12 @@ async function gemini(system: string, user: string, signal?: AbortSignal): Promi
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${secrets.geminiKey}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { maxOutputTokens: 120 } }),
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: user + '\n\nJSON で {"reply": "...", "action": "..."} だけを返す。' }] }],
+      // thinking tokens count against maxOutputTokens on 2.5+/3.x flash; keep thinking off for a one-liner
+      generationConfig: { maxOutputTokens: 600, thinkingConfig: { thinkingBudget: 0 }, responseMimeType: 'application/json' },
+    }),
     signal,
   });
   if (!res.ok) throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);

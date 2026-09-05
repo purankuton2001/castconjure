@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { NgFilter, looksLikeRealPerson } from '../src/filter/ngfilter.js';
 import { Selector } from '../src/filter/selector.js';
 import { buildIdlePrompt, buildPrompt } from '../src/prompt/builder.js';
-import { defaultSystemPrompt, directAction, generateReply } from '../src/reply/llm.js';
+import { defaultSystemPrompt, directAction, generateReply, parseReply } from '../src/reply/llm.js';
 import { defaultSettings } from '../src/config.js';
 import type { ChatMessage, Persona } from '../src/types.js';
 
@@ -81,7 +81,7 @@ test('idle prompt loops and has no comment', () => {
 });
 
 test('reply mock + default system prompt', async () => {
-  const r = await generateReply({ persona, author: 'taro', comment: '踊って' });
+  const r = await generateReply({ persona, author: 'taro', comment: '踊って' }, undefined, 'mock');
   assert.equal(r.provider, 'mock');
   assert.match(r.text, /^taroさん、/);
   assert.match(r.action, /dances energetically/);
@@ -118,4 +118,10 @@ test('prompt builder: anime style line', () => {
   const s = { ...defaultSettings(), worldPrompt: '' };
   assert.match(buildPrompt({ comment: 'x', refCount: 0, hasVoice: false }, s, { ...persona, style: 'anime' }), /2D anime style/);
   assert.match(buildPrompt({ comment: 'x', refCount: 0, hasVoice: false }, s, persona), /Photoreal/);
+});
+
+test('parseReply accepts JSON, fenced JSON and REPLY/ACTION lines', () => {
+  assert.deepEqual(parseReply('{"reply":"hi!","action":"She waves."}'), { reply: 'hi!', action: 'She waves.' });
+  assert.deepEqual(parseReply('```json\n{"reply":"yo","action":"She nods."}\n```'), { reply: 'yo', action: 'She nods.' });
+  assert.deepEqual(parseReply('**REPLY:** hey there\n**ACTION:** She smiles.'), { reply: 'hey there', action: 'She smiles.' });
 });
