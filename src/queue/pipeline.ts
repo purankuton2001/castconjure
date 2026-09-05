@@ -11,9 +11,9 @@ import { NgFilter } from '../filter/ngfilter.js';
 import { Selector } from '../filter/selector.js';
 import { MetricsLogger } from '../metrics/logger.js';
 import { buildIdlePrompt, buildPrompt } from '../prompt/builder.js';
-import { generateReply } from '../reply/llm.js';
+import { directAction, generateReply } from '../reply/llm.js';
 import { loadPersona, personaDir, personaUrl, referenceImageUris, referenceVoiceUri, savePersona } from '../persona/store.js';
-import { detectLang } from '../persona/voice.js';
+import { detectLang, ttsToFile } from '../persona/voice.js';
 import type { ChatMessage, GenerateBackend, GenerateRequest, Job, Persona, PublicJob, PublicState, Settings, WsServerMessage } from '../types.js';
 
 type Listener = (msg: WsServerMessage) => void;
@@ -425,7 +425,7 @@ export class Pipeline {
     const ac = new AbortController();
     const timeout = setTimeout(() => ac.abort(), secrets.genTimeoutMs);
 
-    // F-14 reply mode: one line in the persona's voice, NG-filtered, with a safe fallback.
+    // F-14 reply mode: one line in the persona's voice + a director line for the action, NG-filtered.
     if (s.replyMode && this.persona) {
       try {
         const r = await generateReply({ persona: this.persona, author: job.message.authorName, comment: job.message.text }, ac.signal);
@@ -434,17 +434,40 @@ export class Pipeline {
         const content = handle ? r.text.split(handle).join('viewer') : r.text;
         const blocked = this.ng.check(content, s.ngWords, 200, { allowNames: true });
         job.reply = blocked ? fallbackLine(this.persona) : r.text;
+        job.action = this.ng.check(r.action, s.ngWords, 400, { allowNames: true }) ? directAction(job.message.text) : r.action;
         job.replyMs = r.ms;
-        this.metrics.log('reply_done', { job: job.id, provider: r.provider, ms: r.ms, blocked: blocked ?? null, chars: [...job.reply].length });
+        this.metrics.log('reply_done', { job: job.id, provider: r.provider, ms: r.ms, blocked: blocked ?? null, chars: [...job.reply].length, action: job.action });
       } catch (e) {
         job.reply = fallbackLine(this.persona);
+        job.action = directAction(job.message.text);
         this.metrics.log('reply_failed', { job: job.id, error: (e as Error).message });
         this.log('warn', `reply failed, using fallback: ${(e as Error).message}`);
       }
+    } else {
+      job.action = directAction(job.message.text);
     }
     const lang = job.reply ? detectLang(job.reply) : detectLang(job.message.text);
     const refs = this.refs(lang);
-    job.prompt = buildPrompt({ comment: job.message.text, reply: job.reply, refCount: refs.images.length, hasVoice: !!refs.voice }, s, this.persona);
+    job.prompt = buildPrompt({ comment: job.message.text, reply: job.reply, action: job.action, refCount: refs.images.length, hasVoice: !!refs.voice }, s, this.persona);
+    // Instant acknowledgement (perceived latency): subtitle now, spoken via TTS when audio is on; the clip follows.
+    if (s.instantReply && job.reply) {
+      const tAck = Date.now();
+      if (s.audio) {
+        try {
+          fs.mkdirSync(CLIPS_DIR, { recursive: true });
+          const file = `${job.id}.reply.mp3`;
+          const r = await ttsToFile(job.reply, path.join(CLIPS_DIR, file), this.persona?.voice?.description);
+          if (r) {
+            job.ackVoiceUrl = `/clips/${file}`;
+            this.spentUsd += r.costUsd;
+          }
+        } catch (e) {
+          this.log('warn', `ack TTS failed: ${(e as Error).message}`);
+        }
+      }
+      this.metrics.log('ack', { job: job.id, sinceReceivedMs: Date.now() - job.message.receivedAt, ttsMs: Date.now() - tAck, voice: !!job.ackVoiceUrl });
+      if (!this.current) this.broadcast({ type: 'ack', job: this.toPublic(job) });
+    }
     const req = this.request(job.prompt, this.settings.audio, lang);
     this.metrics.log('gen_start', { job: job.id, backend: this.backend.name, resolution: s.resolution, durationSec: s.durationSec, refImages: refs.images.length, voice: !!refs.voice && s.audio, lang, style: this.persona?.style ?? 'photoreal', estimateUsd: estimate, promptLen: job.prompt.length });
     if (!this.current) this.broadcast({ type: 'generating', job: this.toPublic(job) });
@@ -453,11 +476,15 @@ export class Pipeline {
     try {
       const result = await this.backend.generate(req, ac.signal);
       job.genDoneAt = Date.now();
-      if (result.kind === 'video' && result.backend === 'fal' && secrets.cacheClips) {
-        result.clipUrl = await this.cacheClip(job.id, result.clipUrl);
-      }
       job.result = result;
       job.status = 'ready';
+      // Play from the CDN URL right away; cache in the background for replays/records.
+      if (result.kind === 'video' && result.backend === 'fal' && secrets.cacheClips) {
+        const remote = result.clipUrl;
+        void this.cacheClip(job.id, remote).then((local) => {
+          if (local !== remote) this.metrics.log('clip_cached', { job: job.id, local });
+        });
+      }
       this.spentUsd += result.costUsd;
       this.stats.generated++;
       this.metrics.log('gen_done', {
@@ -470,6 +497,7 @@ export class Pipeline {
         spentUsd: this.spentUsd,
         clipUrl: result.clipUrl,
         reply: job.reply,
+        action: job.action,
         expandedPrompt: result.expandedPrompt,
         raw: result.raw,
       });
@@ -550,6 +578,8 @@ export class Pipeline {
       text: j.message.text,
       prompt: j.prompt,
       reply: j.reply,
+      action: j.action,
+      ackVoiceUrl: j.ackVoiceUrl,
       status: j.status,
       clipUrl: j.result?.clipUrl,
       kind: j.result?.kind,

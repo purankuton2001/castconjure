@@ -8,6 +8,8 @@ import type { Persona, Settings } from '../types.js';
 export interface PromptInput {
   comment: string;
   reply?: string;
+  /** Director line: the concrete full-body action to show (defaults to acting out the comment). */
+  action?: string;
   refCount: number;
   hasVoice: boolean;
 }
@@ -29,7 +31,9 @@ export function buildPrompt(input: PromptInput, s: Settings, persona: Persona | 
     if (persona.forbidden.length) parts.push(`Never: ${persona.forbidden.join('; ')}.`);
   }
 
-  parts.push(`She reacts to a viewer's comment: "${sanitizeComment(input.comment)}". She does what the comment asks, in this setting, expressively.`);
+  if (input.comment.trim()) parts.push(`A viewer commented: "${sanitizeComment(input.comment)}".`);
+  parts.push(input.action?.trim() || `She acts out the request with her whole body, expressively, standing up if it helps.`);
+  if (input.refCount > 0 && input.comment.trim()) parts.push('The reference images define her appearance only, not her pose: she may stand up, move around and use the whole frame.');
   if (input.reply) {
     const lang = /[\uac00-\ud7a3]/.test(input.reply) ? 'Korean' : /[\u3040-\u30ff\u4e00-\u9fff]/.test(input.reply) ? 'Japanese' : 'English';
     parts.push(
@@ -62,8 +66,7 @@ export const IDLE_PROMPTS = [
 
 export function buildIdlePrompt(index: number, s: Settings, persona: Persona | null, refCount: number): string {
   const action = IDLE_PROMPTS[index % IDLE_PROMPTS.length];
-  return buildPrompt({ comment: '', refCount, hasVoice: false }, { ...s, audio: false }, persona)
-    .replace(/She reacts to a viewer's comment: "".*\n/, `${action} She starts and ends in the same seated pose facing the camera, so the clip loops.\n`);
+  return buildPrompt({ comment: '', action: `${action} She starts and ends in the same seated pose facing the camera, so the clip loops.`, refCount, hasVoice: false }, { ...s, audio: false }, persona);
 }
 
 export function sanitizeComment(text: string): string {

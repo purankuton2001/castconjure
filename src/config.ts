@@ -32,8 +32,10 @@ export const secrets = {
   falI2vModel: env('FAL_I2V_MODEL', 'minimax/h3-max/image-to-video'),
   falR2vModel: env('FAL_R2V_MODEL', 'minimax/h3-max/reference-to-video'),
   falPromptExpansion: env('FAL_PROMPT_EXPANSION', 'balanced'),
-  /** Cache generated clips locally so OBS never hits an expired CDN URL. */
+  /** Cache generated clips locally so OBS never hits an expired CDN URL (done in the background; playback starts from the CDN URL). */
   cacheClips: envBool('CACHE_CLIPS', true),
+  /** Use the synchronous fal.run endpoint instead of queue polling (one round trip less). */
+  falSync: envBool('FAL_SYNC', true),
   comfyUrl: env('COMFY_URL', 'http://127.0.0.1:8188'),
   comfyWorkflow: env('COMFY_WORKFLOW', path.join(ROOT, 'local', 'workflow.json')),
   youtubeUnitsPerPoll: envNum('YOUTUBE_UNITS_PER_POLL', 5),
@@ -83,6 +85,7 @@ export function defaultSettings(): Settings {
     personaId: env('PERSONA_ID', 'shirotsume-yui'),
     replyMode: envBool('REPLY_MODE', false),
     idlePoolSize: envNum('IDLE_POOL_SIZE', 12),
+    instantReply: envBool('INSTANT_REPLY', true),
     minIntervalSec: envNum('MIN_INTERVAL_SEC', 30),
     userCooldownSec: envNum('USER_COOLDOWN_SEC', 120),
     commandPrefix: env('COMMAND_PREFIX', ''),
@@ -136,5 +139,6 @@ export function sanitizeSettings(s: Settings): Settings {
     personaId: String(s.personaId ?? '').replace(/[^a-z0-9_-]/gi, ''),
     replyMode: !!s.replyMode,
     idlePoolSize: clamp(s.idlePoolSize, 1, 60, 12),
+    instantReply: s.instantReply !== false,
   };
 }

@@ -36,6 +36,7 @@
   #card { position: absolute; inset: 0; display: none; padding: 24px; box-sizing: border-box; text-align: center;
     background: radial-gradient(120% 120% at 80% 100%, #8a2c6a, #10101a 70%); color: #fff; font-size: 26px; line-height: 1.4; }
   #card.on { display: flex; align-items: center; justify-content: center; }
+  #ackAudio { display: none; }
   #wait { position: absolute; left: 0; right: 0; bottom: 0; display: none; align-items: center; justify-content: center; gap: 12px; padding: 10px;
     color: #eee; font-size: 18px; background: linear-gradient(transparent, rgba(0,0,0,.6)); }
   #wait.on { display: flex; }
@@ -67,6 +68,7 @@
       <div id="card"></div>
     </div>
     <div id="wait"><div class="spin"></div><span id="waitText">generating…</span></div>
+    <audio id="ackAudio" preload="auto"></audio>
     <div id="meta">
       <div id="subtitle"></div>
       <div class="row"><div id="author"></div></div>
@@ -192,10 +194,16 @@
         video.onerror = () => ended(m.job.id);
         video.play().then(() => { reaction.classList.add('on'); meta.classList.add('on'); }).catch(() => ended(m.job.id));
       }
+    } else if (m.type === 'ack') {
+      // instant acknowledgement: subtitle (+ spoken line) over the idle loop while the clip generates
+      if (current) return;
+      setMeta(m.job); meta.classList.add('on');
+      if (showWait) wait.classList.add('on');
+      if (m.job.ackVoiceUrl && unmuted) { const a = $('ackAudio'); a.src = m.job.ackVoiceUrl; a.play().catch(() => {}); }
     } else if (m.type === 'generating') {
       if (current) return;
       if (!showWait) return;
-      setMeta(m.job); subtitle.textContent = '';
+      if (!meta.classList.contains('on')) { setMeta(m.job); subtitle.textContent = ''; }
       wait.classList.add('on');
     } else if (m.type === 'idle') {
       if (current) return;

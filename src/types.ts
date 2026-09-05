@@ -87,6 +87,8 @@ export interface Settings {
   replyMode: boolean;
   /** Idle pool size to generate (F-13). */
   idlePoolSize: number;
+  /** Instant acknowledgement: show the reply subtitle (and speak it via TTS when audio is on) while the clip generates. */
+  instantReply: boolean;
   /** Minimum seconds between two generations (global rate limit). */
   minIntervalSec: number;
   /** Seconds a single user must wait before another of their comments is taken. */
@@ -168,6 +170,10 @@ export interface Job {
   /** Reply line from the LLM (reply mode). */
   reply?: string;
   replyMs?: number;
+  /** Concrete action the clip should show (from the reply step or the keyword director). */
+  action?: string;
+  /** TTS of the reply line for the instant acknowledgement (/clips/<job>.reply.mp3). */
+  ackVoiceUrl?: string;
   status: JobStatus;
   createdAt: number;
   approvedAt?: number;
@@ -186,6 +192,7 @@ export type WsServerMessage =
   | { type: 'settings'; settings: Settings }
   | { type: 'play'; job: PublicJob }
   | { type: 'generating'; job: PublicJob }
+  | { type: 'ack'; job: PublicJob }
   | { type: 'idle' }
   | { type: 'idlePool'; persona: { id: string; name: string; fanName?: string }; clips: { url: string; kind: 'video' | 'card' }[] }
   | { type: 'persona'; persona: Persona | null }
@@ -197,6 +204,8 @@ export interface PublicJob {
   text: string;
   prompt: string;
   reply?: string;
+  action?: string;
+  ackVoiceUrl?: string;
   status: JobStatus;
   clipUrl?: string;
   kind?: 'video' | 'card';

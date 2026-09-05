@@ -11,18 +11,56 @@ export interface ReplyRequest {
   comment: string;
 }
 
-export async function generateReply(req: ReplyRequest, signal?: AbortSignal): Promise<{ text: string; provider: string; ms: number }> {
+/**
+ * Returns the persona's one-line reply AND a concrete action for the video prompt ("director line"):
+ * the comment "dance!!" becomes "she stands up and dances energetically…" so the clip actually shows it.
+ */
+export async function generateReply(req: ReplyRequest, signal?: AbortSignal): Promise<{ text: string; action: string; provider: string; ms: number }> {
   const t0 = Date.now();
   const max = req.persona.personality.replyMaxChars ?? 30;
   const system = req.persona.replySystemPrompt || defaultSystemPrompt(req.persona);
-  const user = `視聴者「${req.author}」さんのコメント：「${req.comment}」\nこのコメントに応えて、これからその動作をする前の一言を ${max} 字以内で返してください。台詞のみを出力。`;
+  const user = `視聴者「${req.author}」さんのコメント：「${req.comment}」
+2 行で出力してください。
+REPLY: そのコメントに応える、これから動く前の一言（${max} 字以内、コメントと同じ言語、絵文字なし）
+ACTION: 映像に映す具体的な動作を英語 1〜2 文で（体全体の動き、表情、必要なら立ち上がる。実在人物・既存作品・楽曲名は書かない）`;
   const provider = secrets.replyProvider;
-  let text: string;
-  if (provider === 'anthropic') text = await anthropic(system, user, signal);
-  else if (provider === 'gemini') text = await gemini(system, user, signal);
-  else if (provider === 'openai') text = await openai(system, user, signal);
-  else text = mock(req);
-  return { text: clean(text, max), provider, ms: Date.now() - t0 };
+  let text: string, action: string;
+  if (provider === 'mock') {
+    text = mock(req);
+    action = directAction(req.comment);
+  } else {
+    const raw = provider === 'anthropic' ? await anthropic(system, user, signal) : provider === 'gemini' ? await gemini(system, user, signal) : await openai(system, user, signal);
+    const m = /REPLY:\s*(.+)/i.exec(raw);
+    const a = /ACTION:\s*(.+)/i.exec(raw);
+    text = m?.[1] ?? raw.split('\n')[0];
+    action = a?.[1]?.trim() || directAction(req.comment);
+  }
+  return { text: clean(text, max), action, provider, ms: Date.now() - t0 };
+}
+
+/** Keyword director (used by the mock provider and as a fallback): comment → explicit full-body action. */
+export function directAction(comment: string): string {
+  const c = comment.toLowerCase();
+  const table: [RegExp, string][] = [
+    [/dance|踊|춤|dança|baila/, 'She springs up from the floor and dances energetically in the middle of the room — full-body movement, hips and arms swinging to an upbeat rhythm, spinning once, hair flying, big grin.'],
+    [/sing|歌|노래/, 'She stands up, holds an imaginary microphone and sings passionately with her whole body, eyes closed on the high note, then laughs.'],
+    [/jump|ジャンプ|跳|점프/, 'She jumps up and down excitedly with both arms in the air, hair bouncing.'],
+    [/wave|手を振|손 흔들|hi\b|hello|こんにちは|안녕/, 'She waves at the camera with both hands, leaning in with a wide smile.'],
+    [/eat|食べ|먹|ramen|ラーメン|라면|pizza|cake/, 'She grabs a bowl, slurps noodles enthusiastically, cheeks puffed, then gives a thumbs up.'],
+    [/drink|飲|마셔|coffee|tea/, 'She picks up her mug, takes a big sip, sighs happily and hugs the mug.'],
+    [/laugh|笑|웃/, 'She bursts out laughing, doubling over and slapping her knee.'],
+    [/cry|泣|울/, 'She pretends to cry dramatically, wiping fake tears, then peeks and giggles.'],
+    [/spin|回|돌/, 'She stands and twirls around twice with her arms out, then strikes a pose.'],
+    [/sleep|寝|자/, 'She yawns, curls up on the cushion and pretends to fall asleep, then peeks one eye open.'],
+    [/peace|ピース|브이/, 'She leans in close to the camera and flashes a double peace sign, winking.'],
+    [/heart|ハート|하트/, 'She makes a big heart with her arms over her head, then a small finger heart at the camera.'],
+    [/run|走|달려/, 'She jumps up and runs in place at full speed, arms pumping, then stops out of breath and laughs.'],
+    [/stretch|伸び/, 'She stretches her arms high, arches her back, and shakes it out.'],
+    [/cook|料理|요리/, 'She mimes cooking at a stove, tossing a pan dramatically and tasting with a wooden spoon.'],
+    [/beach|海|바다/, 'She is now standing on a sunset beach, wind in her hair, arms spread wide, laughing at the waves.'],
+  ];
+  for (const [re, a] of table) if (re.test(c)) return a;
+  return `She acts out the request "${comment}" with her whole body, expressively, standing up if it helps.`;
 }
 
 function mock(req: ReplyRequest): string {

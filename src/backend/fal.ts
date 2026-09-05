@@ -1,24 +1,49 @@
 import { pricing, secrets } from '../config.js';
 import type { GenerateBackend, GenerateRequest, GenerateResult } from '../types.js';
 
-/** Submit to the fal queue REST API and wait for the result. Shared by video, image and TTS calls. */
-export async function falQueue<T>(model: string, input: Record<string, unknown>, signal?: AbortSignal, key = secrets.falKey): Promise<T> {
+export interface FalTiming {
+  /** ms until the queue reported IN_PROGRESS (queue wait); undefined in sync mode */
+  queueMs?: number;
+  /** ms from submit to COMPLETED / response */
+  totalMs: number;
+  /** number of status polls */
+  polls: number;
+  mode: 'sync' | 'queue';
+}
+
+/**
+ * Call a fal model and wait for the result. Shared by video, image and TTS calls.
+ * sync=true uses https://fal.run (single request that returns when done); otherwise the queue API is polled.
+ */
+export async function falQueue<T>(model: string, input: Record<string, unknown>, signal?: AbortSignal, key = secrets.falKey, opts: { sync?: boolean; timing?: (t: FalTiming) => void } = {}): Promise<T> {
   if (!key) throw new Error('FAL_KEY is not set (BYOK: create one at fal.ai/dashboard/keys)');
   const headers = { Authorization: `Key ${key}`, 'Content-Type': 'application/json' };
+  const t0 = Date.now();
+  if (opts.sync) {
+    const res = await fetch(`https://fal.run/${model}`, { method: 'POST', headers, body: JSON.stringify(input), signal });
+    if (!res.ok) throw new Error(`fal run ${model} ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    opts.timing?.({ totalMs: Date.now() - t0, polls: 0, mode: 'sync' });
+    return (await res.json()) as T;
+  }
   const submit = await fetch(`https://queue.fal.run/${model}`, { method: 'POST', headers, body: JSON.stringify(input), signal });
   if (!submit.ok) throw new Error(`fal submit ${model} ${submit.status}: ${(await submit.text()).slice(0, 300)}`);
   const { status_url, response_url } = (await submit.json()) as { request_id: string; status_url: string; response_url: string };
+  let polls = 0;
+  let queueMs: number | undefined;
   for (;;) {
     if (signal?.aborted) throw new Error('aborted');
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 300));
     const st = await fetch(status_url, { headers, signal });
+    polls++;
     if (!st.ok) throw new Error(`fal status ${st.status}`);
     const s = (await st.json()) as { status: string; error?: unknown };
+    if (s.status === 'IN_PROGRESS' && queueMs === undefined) queueMs = Date.now() - t0;
     if (s.status === 'COMPLETED') break;
     if (s.status !== 'IN_QUEUE' && s.status !== 'IN_PROGRESS') throw new Error(`fal status ${s.status}: ${JSON.stringify(s.error ?? '')}`);
   }
   const out = await fetch(response_url, { headers, signal });
   if (!out.ok) throw new Error(`fal result ${out.status}: ${(await out.text()).slice(0, 300)}`);
+  opts.timing?.({ queueMs, totalMs: Date.now() - t0, polls, mode: 'queue' });
   return (await out.json()) as T;
 }
 
@@ -57,7 +82,8 @@ export class FalBackend implements GenerateBackend {
       input.reference_image_urls = req.referenceImageUrls;
       if (req.audio && req.referenceAudioUrl) input.reference_audio_urls = [req.referenceAudioUrl];
     }
-    const body = await falQueue<{ video?: { url?: string }; expanded_prompt?: string; timings?: unknown; seed?: number }>(model, input, signal, this.key);
+    let timing: FalTiming | undefined;
+    const body = await falQueue<{ video?: { url?: string }; expanded_prompt?: string; timings?: unknown; seed?: number }>(model, input, signal, this.key, { sync: secrets.falSync, timing: (t) => (timing = t) });
     const url = body.video?.url;
     if (!url) throw new Error('fal result has no video url');
     return {
@@ -67,7 +93,7 @@ export class FalBackend implements GenerateBackend {
       costUsd: this.estimateCostUsd(req),
       backend: 'fal',
       expandedPrompt: body.expanded_prompt,
-      raw: { timings: body.timings, seed: body.seed },
+      raw: { timings: body.timings, seed: body.seed, fal: timing, model },
     };
   }
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { NgFilter, looksLikeRealPerson } from '../src/filter/ngfilter.js';
 import { Selector } from '../src/filter/selector.js';
 import { buildIdlePrompt, buildPrompt } from '../src/prompt/builder.js';
-import { defaultSystemPrompt, generateReply } from '../src/reply/llm.js';
+import { defaultSystemPrompt, directAction, generateReply } from '../src/reply/llm.js';
 import { defaultSettings } from '../src/config.js';
 import type { ChatMessage, Persona } from '../src/types.js';
 
@@ -57,7 +57,9 @@ const persona: Persona = {
 
 test('prompt builder composes world + persona + comment + reply + audio', () => {
   const s = { ...defaultSettings(), worldPrompt: '', audio: true };
-  const p = buildPrompt({ comment: 'a cat "surfing"\nnow', reply: 'やってみよ！', refCount: 3, hasVoice: true }, s, persona);
+  const p = buildPrompt({ comment: 'a cat "surfing"\nnow', reply: 'やってみよ！', action: 'She stands and twirls.', refCount: 3, hasVoice: true }, s, persona);
+  assert.match(p, /She stands and twirls\./);
+  assert.match(p, /define her appearance only, not her pose/);
   assert.match(p, /^Cozy apartment at golden hour\./);
   assert.match(p, /"Yui" \(appearance exactly as in Image 1, outfit as in Image 2, setting as in Image 3\): a Japanese woman/);
   assert.match(p, /Always visible: clover hair pin/);
@@ -82,6 +84,8 @@ test('reply mock + default system prompt', async () => {
   const r = await generateReply({ persona, author: 'taro', comment: '踊って' });
   assert.equal(r.provider, 'mock');
   assert.match(r.text, /^taroさん、/);
+  assert.match(r.action, /dances energetically/);
+  assert.match(directAction('what is this'), /acts out the request/);
   assert.equal((await generateReply({ persona, author: 'mika', comment: 'dance!!' })).text, "mika, let's do it!");
   assert.equal((await generateReply({ persona, author: 'yujin', comment: '춤춰줘' })).text, 'yujin, 해보자!');
   assert.ok([...r.text].length <= 30);

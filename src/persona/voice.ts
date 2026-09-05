@@ -59,3 +59,22 @@ function findAudioUrl(o: unknown): string | undefined {
   }
   return undefined;
 }
+
+/** TTS of one line to a file (instant acknowledgement). Returns null on mock / no key. */
+export async function ttsToFile(text: string, outPath: string, description?: string): Promise<{ costUsd: number } | null> {
+  const useFal = secrets.personaImages === 'fal' || (secrets.personaImages === 'auto' && !!secrets.falKey);
+  if (!useFal) return null;
+  let extra: Record<string, unknown> = {};
+  try {
+    extra = JSON.parse(secrets.falTtsExtra) as Record<string, unknown>;
+  } catch {
+    /* ignore */
+  }
+  const out = await falQueue<Record<string, unknown>>(secrets.falTtsModel, { text, ...(description ? { voice_description: description } : {}), ...extra }, undefined, secrets.falKey, { sync: true });
+  const url = findAudioUrl(out);
+  if (!url) return null;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  fs.writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
+  return { costUsd: personaPricing.ttsPerCall };
+}
