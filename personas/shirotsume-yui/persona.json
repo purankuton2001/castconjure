@@ -8,11 +8,11 @@
   "fanName": "クローバー",
   "catchphrase": "唱えてくれたら、出てくるよ",
   "appearance": {
-    "summary": "Japanese woman in her early twenties, dark brown medium bob with pale lavender inner hair, white four-leaf clover hair pin on her left side, round friendly slightly downturned eyes, thick natural eyebrows, faint freckles, oversized white shirt with a pale lavender cardigan, black wide-leg pants.",
+    "summary": "a stunning K-pop idol-style Japanese woman in her early twenties: glass skin, slim oval face with a defined jawline, large bright double-lidded eyes, soft gradient lips, sleek glossy dark brown medium-length hair, a white four-leaf clover hair pin on her left, oversized white shirt with a pale lavender cardigan, black wide-leg pants",
     "signatures": [
-      "pale lavender inner hair",
       "white four-leaf clover hair pin (left)",
-      "pale lavender cardigan"
+      "pale lavender cardigan",
+      "sleek dark brown medium-length hair"
     ],
     "defaultOutfit": "oversized white shirt, pale lavender cardigan, black wide-leg pants, room socks",
     "defaultScene": "cozy Japanese studio apartment at golden hour, houseplants, floor cushion, small desk with an empty ramen bowl"
@@ -22,9 +22,9 @@
   },
   "referencePrompts": {
     "suffix": "photoreal, natural skin texture, no makeup retouching, not resembling any real celebrity, adult woman in her early twenties, no text, no watermark",
-    "face": "Close-up portrait, Japanese woman early twenties, round friendly eyes slightly downturned, thick natural eyebrows, faint freckles on cheeks, dark brown medium bob with pale lavender inner hair, white four-leaf clover hair pin on her left, soft smile showing teeth, golden hour window light",
-    "full": "Full-body, same woman, oversized white shirt, pale lavender cardigan, black wide-leg pants, room socks, standing in a plant-filled apartment, slightly hunched relaxed posture, looking at camera",
-    "scene": "Same woman sitting on a floor cushion in a cozy apartment at golden hour, houseplants, small desk with an empty ramen bowl, holding a white mug, laughing"
+    "face": "Close-up beauty portrait of a stunning K-pop idol-style Japanese woman, 22, flawless glass skin with a natural glow, slim oval face with a defined jawline and small chin, large bright double-lidded eyes with subtle aegyo-sal, straight elegant nose, soft gradient lips, light idol makeup, sleek glossy dark brown medium-length hair with pale lavender inner color, a white four-leaf clover hair pin on her left, gentle confident smile, studio-quality soft lighting, editorial photo",
+    "full": "Full-body editorial photo of the same woman, tall slim idol proportions, oversized white shirt with a pale lavender cardigan, black wide-leg pants, room socks, standing relaxed in a plant-filled apartment at golden hour, looking at the camera",
+    "scene": "The same woman sitting on a floor cushion in a cozy Japanese apartment at golden hour, houseplants, a small desk with an empty ramen bowl, holding a white mug, laughing naturally, cinematic soft light"
   },
   "worldPrompt": "A cozy Japanese studio apartment at golden hour. Warm sunlight through the window, many houseplants, a cushion on the floor, a small desk with an empty ramen bowl. Natural, photoreal, handheld camera, soft depth of field, 35mm look. The main character is \"Yui\" (appearance exactly as in Image 1): a Japanese woman in her early twenties, dark brown medium bob with pale lavender inner hair, a white four-leaf clover hair pin on her left side, an oversized white shirt with a pale lavender cardigan. She is expressive and cheerful. She looks at the camera often.",
   "personality": {
