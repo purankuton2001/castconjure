@@ -156,7 +156,7 @@ One-time per persona: idle pool 12 × $0.25 ≈ $3, ack pool 6 × $0.25 ≈ $1.5
 
 ## Safety by design
 
-1. **Your own original character only.** Faces are generated in-app; the UI has no upload (`npm run persona:import` is a developer path for artwork you made yourself). Every prompt carries "fictional adult, not resembling any real idol or existing character".
+1. **Your own original character only.** Faces are generated in-app; the UI has no upload (`npm run persona:import` is a developer path for artwork you made yourself). Every face-generation prompt carries "fictional adult, not resembling any real idol or existing character".
 2. **Real idols and existing IP are blocked everywhere** — comments, replies, persona text, gacha prompts. "Look like X", "cosplay as X", "do X's choreo" too.
 3. **Adults only. Voice is generated, never cloned from a real person** — the clone step only accepts audio that `voice:gacha` itself generated. **No real music, no real choreography.**
 4. **The owner is in charge** — on/off, world, rate, approval, budget. Viewers cannot paint on your screen without you.

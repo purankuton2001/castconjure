@@ -27,7 +27,7 @@ export interface Persona {
   name: string;
   /** Visual style preset. Drives the face-gacha suffix and the video prompt. Default photoreal. */
   style?: PersonaStyle;
-  /** Fixed generation seed: same seed + same voice/appearance description keeps face and voice stable across clips (R24 trick). */
+  /** Fixed generation seed: same seed + same voice/appearance description keeps face and voice stable across clips. */
   seed?: number;
   reading?: string;
   nameEn?: string;

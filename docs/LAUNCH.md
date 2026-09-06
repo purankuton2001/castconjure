@@ -4,7 +4,7 @@ What to post, where, in which order. Everything below is written to be pasted; e
 
 ## Before the first post
 
-- [x] Private repo pushed (`purankuton2001/castconjure`), history slimmed to ~25 MB, Discussions enabled
+- [x] Private repo pushed (`purankuton2001/castconjure`), old media purged from history, Discussions enabled
 - [ ] Make it public: `gh repo edit purankuton2001/castconjure --visibility public --accept-visibility-change-consequences`
 - [ ] **Right after going public** — Settings → General → **Social preview**: upload `docs/social-preview.png` (1280×640). The field only exists on public repos, and there is no API for it.
 - [ ] **Right after going public** — Settings → Security → enable **Private vulnerability reporting** (CONTRIBUTING and SECURITY.md point people there)

@@ -36,4 +36,4 @@ python3 scripts/check-sync.py --rec <recording.webm> --events <events.json>    #
 
 ## Reporting a safety issue
 
-If you find a way to bypass the real-person / existing-IP guards, open an issue titled `safety:` — or, if you prefer, a private report via GitHub's "Report a vulnerability".
+If you find a way to bypass the real-person / existing-IP guards, open an issue titled `safety:` — or, if you prefer, a private report via GitHub's "Report a vulnerability" (see [SECURITY.md](SECURITY.md)).

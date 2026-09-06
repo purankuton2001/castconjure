@@ -10,7 +10,6 @@ BTS
 防弾少年団
 BLACKPINK
 블랙핑크
-TWICE
 트와이스
 NewJeans
 뉴진스
@@ -27,7 +26,6 @@ SEVENTEEN
 NCT
 EXO
 엑소
-Red Velvet
 레드벨벳
 ITZY
 있지
@@ -51,7 +49,6 @@ ZEROBASEONE
 제로베이스원
 BOYNEXTDOOR
 보이넥스트도어
-TREASURE
 트레저
 NMIXX
 엔믹스
@@ -109,7 +106,6 @@ Taeyeon
 G-Dragon
 지드래곤
 Hanni
-하니
 Minji
 민지
 다니엘
@@ -174,7 +170,6 @@ Ice Spice
 Doja Cat
 ## J-pop / Japanese
 YOASOBI
-Ado
 米津玄師
 Kenshi Yonezu
 藤井風
@@ -189,10 +184,7 @@ Nogizaka46
 櫻坂46
 日向坂46
 AKB48
-Perfume
-Snow Man
 SixTONES
-嵐
 Arashi
 ## VTubers / agencies
 Hololive
@@ -220,7 +212,6 @@ Kson
 Kuzuha
 葛葉
 Kanae
-叶
 Vox Akuma
 Salome
 壱百満天原サロメ
@@ -281,7 +272,6 @@ Raiden Shogun
 Ganyu
 甘雨
 Hu Tao
-胡桃
 Furina
 フリーナ
 2B
@@ -291,7 +281,6 @@ Aerith
 エアリス
 Lara Croft
 Ahri
-アリ
 Princess Peach
 ピーチ姫
 Zelda
@@ -314,7 +303,6 @@ Demon Slayer
 鬼滅の刃
 Jujutsu Kaisen
 呪術廻戦
-One Piece
 ワンピース
 Dragon Ball
 ドラゴンボール
@@ -335,7 +323,6 @@ My Hero Academia
 Genshin
 原神
 Honkai
-崩壊
 Blue Archive
 ブルーアーカイブ
 Fate/Grand Order
