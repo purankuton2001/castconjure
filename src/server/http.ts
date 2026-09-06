@@ -29,9 +29,18 @@ const MIME: Record<string, string> = {
 const ipGuard = new IpGuard();
 
 /** F-16 on the generation side: persona text and gacha prompts must not name real idols or existing IP. */
+/** Browser pages from other origins must not be able to spend the owner's credits: same-origin fetches and non-browser clients only. */
+function sameOriginRequest(req: http.IncomingMessage, port: number): boolean {
+  const site = req.headers['sec-fetch-site'];
+  if (typeof site === 'string') return site === 'same-origin' || site === 'none';
+  const origin = req.headers.origin;
+  return !origin || LOCAL_ORIGIN.test(origin);
+}
+const LOCAL_ORIGIN = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/;
+
 function ipHit(fields: Record<string, unknown>): string | null {
   for (const [k, v] of Object.entries(fields)) {
-    const text = Array.isArray(v) ? v.join(' ') : typeof v === 'string' ? v : '';
+    const text = Array.isArray(v) ? v.join(' ') : typeof v === 'string' ? v : v && typeof v === 'object' ? Object.values(v as Record<string, unknown>).map((x) => (Array.isArray(x) ? x.join(' ') : typeof x === 'string' ? x : '')).join(' ') : '';
     const m = text && ipGuard.match(text);
     if (m) return `${k}: "${m}"`;
   }
@@ -59,7 +68,7 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
           if (!abs.startsWith(PERSONAS_DIR + path.sep)) return notFound(res);
           return sendFile(res, abs, true);
         }
-        if (p === '/api/state') return json(res, { settings: pipeline.settings, state: pipeline.publicState(), logs: pipeline.recentLogs(), backend: pipeline.effectiveBackend, metricsFile: pipeline.metrics.file, persona: pipeline.activePersona, personas: listPersonas().map((x) => ({ id: x.id, name: x.name })) });
+        if (p === '/api/state') return json(res, { settings: pipeline.settings, state: pipeline.publicState(), logs: pipeline.recentLogs(), backend: pipeline.effectiveBackend, metricsFile: pipeline.metrics.file.startsWith(process.cwd()) ? pipeline.metrics.file.slice(process.cwd().length + 1) : pipeline.metrics.file, persona: pipeline.activePersona, personas: listPersonas().map((x) => ({ id: x.id, name: x.name })) });
         if (p === '/api/settings') return json(res, pipeline.settings);
         if (p === '/api/personas') return json(res, listPersonas());
         if (p === '/api/persona') return json(res, pipeline.activePersona);
@@ -72,6 +81,7 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
         return notFound(res);
       }
       if (req.method === 'POST') {
+        if (!sameOriginRequest(req, port)) return json(res, { error: 'cross-origin request rejected' }, 403);
         const body = (await readJson(req)) as Record<string, unknown>;
         if (p === '/api/settings') {
           const next = sanitizeSettings({ ...pipeline.settings, ...(body as Partial<Settings>) });
@@ -137,7 +147,7 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
           const merged: Persona = { ...cur, ...editable, id: cur.id, references: cur.references, idle: cur.idle, adult: true, appearance: { ...cur.appearance, ...(patch.appearance ?? {}) }, personality: { ...cur.personality, ...(patch.personality ?? {}) }, voice: { ...(cur.voice ?? {}), ...(patch.voice ?? {}) } };
           merged.style = merged.style === 'anime' ? 'anime' : 'photoreal';
           merged.seed = Number.isFinite(Number(patch.seed)) && Number(patch.seed) >= 0 ? Math.floor(Number(patch.seed)) : cur.seed;
-          const hit = ipHit({ name: merged.name, appearance: merged.appearance.summary, signatures: merged.appearance.signatures ?? [], worldPrompt: merged.worldPrompt ?? '', replySystemPrompt: merged.replySystemPrompt ?? '' });
+          const hit = ipHit({ name: merged.name, nameEn: merged.nameEn ?? '', appearance: merged.appearance.summary, signatures: merged.appearance.signatures ?? [], outfit: merged.appearance.defaultOutfit ?? '', scene: merged.appearance.defaultScene ?? '', worldPrompt: merged.worldPrompt ?? '', replySystemPrompt: merged.replySystemPrompt ?? '', voice: merged.voice?.description ?? '', catchphrase: merged.catchphrase ?? '', personality: merged.personality ?? {}, referencePrompts: merged.referencePrompts ?? {} });
           if (hit) return json(res, { error: `Real idols and existing characters can't be used (${hit}). Your own original character only.` }, 400);
           savePersona(merged);
           pipeline.reloadPersona();
@@ -232,7 +242,7 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
     }
   });
 
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ origin }: { origin?: string }) => !origin || LOCAL_ORIGIN.test(origin) });
   wss.on('connection', (ws) => {
     send(ws, { type: 'hello', settings: pipeline.settings, state: pipeline.publicState() });
     send(ws, pipeline.idlePoolMessage());
@@ -255,6 +265,11 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
     for (const c of wss.clients) if (c.readyState === WebSocket.OPEN) send(c, msg);
   });
 
+  server.on('error', (e: NodeJS.ErrnoException) => {
+    if (e.code === 'EADDRINUSE') console.error(`port ${port} is already in use — stop the other process or set PORT in .env`);
+    else console.error(e.message);
+    process.exit(1);
+  });
   server.listen(port, '127.0.0.1');
   return server;
 }

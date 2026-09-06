@@ -84,7 +84,7 @@ export function defaultSettings(): Settings {
     backend: (env('BACKEND', 'mock') as Settings['backend']) || 'mock',
     resolution: (env('RESOLUTION', '480p') as Settings['resolution']) || '480p',
     durationSec: envNum('DURATION_SEC', 5),
-    audio: envBool('AUDIO', false),
+    audio: envBool('AUDIO', true),
     worldPrompt: env('WORLD_PROMPT'),
     personaId: env('PERSONA_ID', 'shirotsume-yui'),
     replyMode: envBool('REPLY_MODE', false),

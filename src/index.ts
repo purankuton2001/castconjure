@@ -17,10 +17,15 @@ console.log(`
   OBS source: ${base}/overlay   (browser source, 1920x1080, transparent)
   backend   : ${pipeline.effectiveBackend}   platform: ${settings.platform}
   persona   : ${p ? `${p.name} (${p.id}) refs=${[p.references.face, p.references.full, p.references.scene].filter(Boolean).length} idle=${p.idle?.clips.length ?? 0}` : 'none'}
-  metrics   : ${pipeline.metrics.file}
+  metrics   : ${relPath(pipeline.metrics.file)}
 `);
 
 if (process.env.AUTOSTART === '1') void pipeline.start();
+
+function relPath(p: string): string {
+  const cwd = process.cwd();
+  return p.startsWith(cwd) ? p.slice(cwd.length + 1) : p;
+}
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, async () => {

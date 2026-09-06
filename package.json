@@ -22,7 +22,10 @@
     "persona:import": "tsx src/cli/persona-import.ts",
     "voice:gacha": "tsx src/cli/voice-gacha.ts",
     "ack": "tsx src/cli/ack-pool.ts",
-    "probe:director": "node scripts/director-probe.mjs --seconds 120 --out out/director"
+    "probe:director": "node scripts/director-probe.mjs --seconds 120 --out out/director",
+    "record:app": "node scripts/record-app.mjs",
+    "probe:latency": "tsx src/cli/probe-latency.ts",
+    "probe:turbo": "tsx src/cli/probe-turbo.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -47,7 +50,12 @@
     "obs",
     "youtube-live",
     "livestream",
-    "generative-video"
+    "generative-video",
+    "kpop",
+    "anime",
+    "typescript",
+    "open-source",
+    "image-to-video"
   ],
   "repository": {
     "type": "git",

@@ -7,6 +7,7 @@ What to post, where, in which order. Everything below is written to be pasted; e
 - [x] Private repo pushed (`purankuton2001/castconjure`), history slimmed to ~25 MB, Discussions enabled
 - [ ] Make it public: `gh repo edit purankuton2001/castconjure --visibility public --accept-visibility-change-consequences`
 - [ ] **Right after going public** — Settings → General → **Social preview**: upload `docs/social-preview.png` (1280×640). The field only exists on public repos, and there is no API for it.
+- [ ] **Right after going public** — Settings → Security → enable **Private vulnerability reporting** (CONTRIBUTING and SECURITY.md point people there)
 - [ ] Topics: `ai-vtuber` `vtuber` `virtual-idol` `text-to-video` `minimax` `h3` `fal` `obs` `youtube-live` `livestream` `kpop` `anime` `generative-video` `typescript` `open-source`
 - [ ] Discussions: create the Q&A + Show and tell categories, pin a "Post your persona (your own OC only)" thread
 - [ ] Description: *Your own virtual idol, generated — not lip-synced. Chat makes her dance, eat, talk and change scenes, live. OSS, BYOK.*
@@ -37,7 +38,7 @@ What to post, where, in which order. Everything below is written to be pasted; e
 Thread (replies):
 1. How it stays consistent without reference audio: fixed seed + the same descriptions + starting every clip from a frame of her idle loop.
 2. Why there's no dead time: 6 pre-generated "noticed your comment" clips play instantly while the reaction generates.
-3. Latency breakdown (measured): reply 1.3 s (Gemini) · generation 2.5–4 s · cache 1.5 s → 6–8 s comment to screen.
+3. Latency breakdown (measured): reply ~1.3 s (Gemini) · fal queue + generation 2.5–4 s · download and cache ~1.5 s · playback handoff → 4–8 s comment to screen, ~6 s typical.
 4. Safety: faces are generated in-app only; real idols / existing characters / "look like X" are blocked in chat and in prompts.
 5. "Why not fal's continuous H3 Max Director?" — we ran it for 2 min from her idle frame: same face and voice, but a 120 s session cap, 3–19 s prompt-to-screen and fake chat UI drifting in by 90 s. Numbers + recording in the repo (`npm run probe:director`).
 6. What's next: demo streams on YouTube, Twitch adapter, gift → directing rights.
@@ -58,14 +59,14 @@ Thread (replies):
 
 Title (≤ 80 chars):
 
-> Show HN: castconjure – open-source AI VTuber that generates video, not lip-sync
+> Show HN: Castconjure – an AI VTuber that generates video instead of lip-sync
 
 Body:
 
 > castconjure turns a generated character into a live streamer. There is no rigged model: each reaction to a chat comment is a freshly generated 5-second clip (MiniMax H3 Max Turbo on fal) with her own voice, starting from a frame of her idle loop so the cut is seamless.
 >
 > The interesting bits:
-> - Consistency without reference audio: a fixed per-persona seed plus identical appearance/voice descriptions keeps face and voice stable across clips (the same trick R24 uses on Reactor).
+> - Consistency without reference audio: a fixed per-persona seed plus identical appearance/voice descriptions keeps face and voice stable across clips.
 > - Perceived latency: six pre-generated "noticed your comment" clips play 0.2 s after a comment while the real reaction generates (6–8 s measured). The reply subtitle only appears with the clip, so nothing is spoiled.
 > - Safety as a design constraint: faces are generated in-app (no upload), and a blocklist + heuristics drop real idols, existing characters and "make her look like X" in chat, replies and prompts.
 > - Everything is a BYOK interface: fal / local ComfyUI backends, YouTube Live via API key (no OAuth), Gemini / Claude / OpenAI for replies.

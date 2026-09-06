@@ -15,7 +15,10 @@ const opt = (k: string, d = '') => { const i = args.indexOf(`--${k}`); return i 
 const id = opt('id').toLowerCase().replace(/[^a-z0-9_-]/g, '');
 const face = opt('face');
 const style = opt('style', 'anime') === 'anime' ? 'anime' : 'photoreal';
-if (!id || !face || !fs.existsSync(face)) throw new Error('usage: --id <id> --face <image> [--name ..] [--style anime|photoreal] [--from <personaId>]');
+if (!id || !face || !fs.existsSync(face)) {
+  console.error('usage: npm run persona:import -- --id <id> --face <your-own-artwork.png> [--name ..] [--style anime|photoreal] [--from <personaId>]');
+  process.exit(1);
+}
 seedTemplates();
 let p = loadPersona(id);
 if (!p) {

@@ -66,7 +66,7 @@
 A cozy Japanese studio apartment at golden hour. Warm sunlight through the window, many houseplants,
 a cushion on the floor, a small desk with an empty ramen bowl. Natural, photoreal, handheld camera,
 soft depth of field, 35mm look. The main character is "Yui" (appearance exactly as in Image 1):
-a Japanese woman in her early twenties, dark brown medium bob with pale lavender inner hair,
+a Japanese woman in her early twenties, sleek glossy dark brown medium-length hair,
 a white four-leaf clover hair pin on her left side, an oversized white shirt with a pale lavender cardigan.
 She is expressive and cheerful. She looks at the camera often.
 ```
@@ -77,7 +77,7 @@ She is expressive and cheerful. She looks at the camera often.
 
 | 枚 | 用途 | プロンプト骨子 |
 |---|---|---|
-| refs/face.png | 顔アップ | Close-up portrait, Japanese woman early twenties, round friendly eyes slightly downturned, thick natural eyebrows, faint freckles on cheeks, dark brown medium bob with pale lavender inner hair, white four-leaf clover hair pin on her left, soft smile showing teeth, golden hour window light |
+| refs/face.png | 顔アップ | Close-up portrait, Japanese woman early twenties, round friendly eyes slightly downturned, thick natural eyebrows, faint freckles on cheeks, sleek glossy dark brown medium-length hair, white four-leaf clover hair pin on her left, soft smile showing teeth, golden hour window light |
 | refs/full.png | 全身 | Full-body, same woman, oversized white shirt, pale lavender cardigan, black wide-leg pants, room socks, standing in a plant-filled apartment, slightly hunched relaxed posture, looking at camera |
 | refs/scene.png | 世界観内 | Same woman sitting on a floor cushion in a cozy apartment at golden hour, houseplants, small desk with an empty ramen bowl, holding a white mug, laughing |
 

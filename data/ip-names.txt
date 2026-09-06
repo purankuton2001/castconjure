@@ -97,7 +97,6 @@ Taehyung
 태형
 Jennie
 제니
-Lisa
 리사
 Jisoo
 지수
@@ -113,15 +112,12 @@ Hanni
 하니
 Minji
 민지
-Danielle
 다니엘
 Haerin
 해린
 Hyein
 혜인
-Karina
 카리나
-Winter
 윈터
 Wonyoung
 원영
@@ -129,7 +125,6 @@ Jang Wonyoung
 장원영
 Yujin
 안유진
-Sakura
 사쿠라
 Kazuha
 카즈하
@@ -137,13 +132,10 @@ Chaewon
 채원
 Nayeon
 나연
-Sana
 사나
-Momo
 모모
 Tzuyu
 쯔위
-Felix
 필릭스
 Hyunjin
 현진
@@ -198,7 +190,6 @@ Nogizaka46
 日向坂46
 AKB48
 Perfume
-LiSA
 Snow Man
 SixTONES
 嵐
@@ -253,10 +244,8 @@ Vegeta
 Luffy
 ルフィ
 Zoro
-Nami
 Sailor Moon
 セーラームーン
-Asuka
 アスカ
 Rei Ayanami
 綾波レイ
@@ -264,28 +253,21 @@ Marin Kitagawa
 喜多川海夢
 Frieren
 フリーレン
-Anya
 アーニャ
 Yor Forger
 ヨル
 Makima
 マキマ
-Power
 Zero Two
 ゼロツー
-Rem
 レム
-Emilia
 エミリア
 Mikasa
 ミカサ
-Levi
 リヴァイ
-Eren
 エレン
 Bocchi
 ぼっち
-Nino
 Miku Nakano
 中野三玖
 Chika Fujiwara
@@ -302,15 +284,12 @@ Hu Tao
 胡桃
 Furina
 フリーナ
-Firefly
-Kafka
 2B
 Tifa
 ティファ
 Aerith
 エアリス
 Lara Croft
-Jinx
 Ahri
 アリ
 Princess Peach
@@ -321,14 +300,12 @@ Pikachu
 ピカチュウ
 Chun-Li
 春麗
-Ryu
 Nagatoro
 長瀞
 Uzaki
 宇崎
 Elaina
 イレイナ
-Aqua
 アクア
 Megumin
 めぐみん
@@ -339,7 +316,6 @@ Jujutsu Kaisen
 呪術廻戦
 One Piece
 ワンピース
-Naruto
 Dragon Ball
 ドラゴンボール
 Attack on Titan
@@ -350,7 +326,6 @@ Chainsaw Man
 チェンソーマン
 Spy x Family
 スパイファミリー
-Frieren
 Oshi no Ko
 推しの子
 Bocchi the Rock
@@ -375,15 +350,12 @@ Uma Musume
 Pokémon
 Pokemon
 ポケモン
-Zelda
-ゼルダ
 Final Fantasy
 ファイナルファンタジー
 Nier
 ニーア
 Persona 5
 ペルソナ5
-Sailor Moon
 Re:Zero
 リゼロ
 Konosuba

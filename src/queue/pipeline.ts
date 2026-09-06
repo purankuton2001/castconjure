@@ -157,7 +157,10 @@ export class Pipeline {
       const out = path.join(personaDir(p.id), 'refs', 'frame.png');
       fs.mkdirSync(path.dirname(out), { recursive: true });
       const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', path.join(personaDir(p.id), first.file), '-frames:v', '1', out]);
-      if (r.status !== 0 || !fs.existsSync(out)) return undefined;
+      if (r.status !== 0 || !fs.existsSync(out)) {
+        this.log('warn', `could not extract the first frame with ffmpeg (${r.error ? 'ffmpeg not found — install it' : 'ffmpeg failed'}); falling back to reference-to-video (slower and costlier)`);
+        return undefined;
+      }
       p.references.frame = 'refs/frame.png';
       savePersona(p);
       this.log('info', `first frame for i2v extracted from ${first.file}`);
