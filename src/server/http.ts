@@ -210,6 +210,11 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
           pipeline.metrics.log('voice_generated', { persona: cur.id, backend: r.backend, costUsd: r.costUsd, lang });
           return json(res, { persona: pipeline.activePersona, costUsd: r.costUsd, backend: r.backend, lang });
         }
+        if (p === '/api/persona/ack') {
+          const count = Math.max(1, Math.min(12, Number(body.count ?? 6)));
+          void pipeline.generateAckPool(count).catch((e) => pipeline.log('error', `ack pool: ${(e as Error).message}`));
+          return json(res, { ok: true, count, estimateUsd: pipeline.estimateClipCostUsd() * count });
+        }
         if (p === '/api/persona/idle') {
           if (body.action === 'cancel') {
             pipeline.cancelIdlePool();

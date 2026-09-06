@@ -82,3 +82,19 @@ export function sanitizeComment(text: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/** Ack-pool prompts (F-13b): she notices a new comment and says a short interjection — no answer, no spoiler. */
+export const ACK_LINES: { line: string; lang: 'en' | 'ja' | 'ko'; action: string }[] = [
+  { line: "Oh! A new comment. Let me see…", lang: 'en', action: 'She glances to the side as if reading chat, eyes lighting up, then leans toward the camera with a curious smile.' },
+  { line: "Hmm? Wait, wait… okay!", lang: 'en', action: 'She tilts her head, reads for a second, then nods decisively and rolls her shoulders as if getting ready.' },
+  { line: "え、なになに？ ちょっと待ってね。", lang: 'ja', action: 'She perks up, looks at the chat with wide eyes, raises a finger like "one moment" and grins.' },
+  { line: "ふふ、見てて。", lang: 'ja', action: 'She reads the comment, covers a small laugh with her hand, then looks straight into the camera with a confident smile.' },
+  { line: "오, 댓글 왔다! 잠깐만요.", lang: 'ko', action: 'She notices the chat, claps once softly, and leans in with a playful expression.' },
+  { line: "Okay okay, I got it!", lang: 'en', action: 'She points at the camera as if at the commenter, nods twice, and sits up straight, ready.' },
+];
+
+export function buildAckPrompt(index: number, s: Settings, persona: Persona | null, refKinds: ('face' | 'full' | 'scene' | 'frame')[]): string {
+  const a = ACK_LINES[index % ACK_LINES.length];
+  const langName = a.lang === 'ja' ? 'Japanese' : a.lang === 'ko' ? 'Korean' : 'English';
+  return buildPrompt({ comment: '', action: `${a.action} She stays in the same place and framing; the clip should end in a calm, attentive pose. She says, in ${langName}, looking at the camera: "${a.line}"`, refCount: refKinds.length, refKinds, hasVoice: false }, { ...s, audio: true }, persona);
+}

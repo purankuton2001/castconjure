@@ -77,6 +77,7 @@ function normalize(p: Persona): Persona {
     personality: { verbalTics: [], replyMaxChars: 30, ...(p.personality ?? {}) },
     forbidden: Array.isArray(p.forbidden) ? p.forbidden : [],
     idle: { clips: [], ...(p.idle ?? {}) },
+    ack: { clips: [], ...(p.ack ?? {}) },
   };
 }
 

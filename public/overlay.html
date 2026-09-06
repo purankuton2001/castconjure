@@ -167,7 +167,7 @@
     author.textContent = job.authorName;
     const s = document.createElement('small'); s.textContent = TXT.suffix; author.appendChild(s);
     comment.textContent = job.text;
-    subtitle.textContent = job.reply || '';
+    subtitle.textContent = job.isAck ? '' : (job.reply || '');
     badge.classList.toggle('hide', !job.showAiBadge);
   }
   function stopReaction() {

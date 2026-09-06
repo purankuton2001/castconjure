@@ -11,7 +11,7 @@ import { YouTubeAdapter } from '../chat/youtube.js';
 import { NgFilter } from '../filter/ngfilter.js';
 import { Selector } from '../filter/selector.js';
 import { MetricsLogger } from '../metrics/logger.js';
-import { buildIdlePrompt, buildPrompt } from '../prompt/builder.js';
+import { ACK_LINES, buildAckPrompt, buildIdlePrompt, buildPrompt } from '../prompt/builder.js';
 import { directAction, generateReply } from '../reply/llm.js';
 import { fileDataUri, loadPersona, personaDir, personaUrl, referenceImageUris, referenceVoiceUri, savePersona } from '../persona/store.js';
 import { detectLang, ttsToFile } from '../persona/voice.js';
@@ -220,6 +220,61 @@ export class Pipeline {
     this.idleJob?.abort.abort();
   }
 
+  /** F-13b: generate the ack pool — short spoken "noticed your comment" clips, one per ACK_LINES entry (max count). */
+  async generateAckPool(count = ACK_LINES.length): Promise<void> {
+    const p = this.persona;
+    if (!p) throw new Error('no persona selected');
+    const dir = path.join(personaDir(p.id), 'ack');
+    fs.mkdirSync(dir, { recursive: true });
+    p.ack = { clips: [] };
+    savePersona(p);
+    const n = Math.min(count, ACK_LINES.length);
+    this.metrics.log('ack_pool_start', { persona: p.id, count: n, backend: this.backend.name, mode: this.settings.genMode });
+    for (let i = 0; i < n; i++) {
+      const req = this.request('', true);
+      const prompt = buildAckPrompt(i, this.settings, p, req.firstFrameUrl ? ['frame'] : this.refs().kinds);
+      try {
+        const res = await this.backend.generate({ ...req, prompt }, new AbortController().signal);
+        let file = '';
+        if (res.kind === 'video') {
+          file = `ack/${String(i + 1).padStart(2, '0')}.mp4`;
+          await downloadTo(res.clipUrl, path.join(personaDir(p.id), file));
+        }
+        p.ack.clips.push({ file, kind: res.kind, prompt: ACK_LINES[i].line, costUsd: res.costUsd });
+        savePersona(p);
+        this.spentUsd += res.costUsd;
+        this.metrics.log('ack_clip_done', { persona: p.id, index: i, genMs: res.genMs, costUsd: res.costUsd, line: ACK_LINES[i].line });
+        this.log('info', `ack clip ${i + 1}/${n}: "${ACK_LINES[i].line}"`);
+      } catch (e) {
+        this.metrics.log('ack_clip_failed', { persona: p.id, index: i, error: (e as Error).message });
+        this.log('error', `ack clip ${i + 1} failed: ${(e as Error).message}`);
+      }
+    }
+    this.pushState();
+  }
+
+  /** Put a random ack clip on screen right now, bridging the wait for `forJob`. */
+  private playAck(forJob: Job): void {
+    const p = this.persona;
+    const clips = (p?.ack?.clips ?? []).filter((c) => c.kind === 'video' && c.file);
+    if (!p || !clips.length || !this.settings.ackClips || this.current) return;
+    const c = clips[Math.floor(Math.random() * clips.length)];
+    const ack: Job = {
+      id: `${forJob.id}-ack`,
+      message: forJob.message,
+      prompt: `(ack) ${c.prompt}`,
+      status: 'ready',
+      createdAt: Date.now(),
+      isAck: true,
+      forJob: forJob.id,
+      result: { clipUrl: personaUrl(p.id, c.file), kind: 'video', genMs: 0, costUsd: 0, backend: 'fal' },
+    };
+    this.jobs.set(ack.id, ack);
+    this.order.splice(this.order.indexOf(forJob.id), 0, ack.id); // before the reaction it bridges
+    this.metrics.log('ack_play', { job: forJob.id, ack: c.file });
+    this.pumpPlay();
+  }
+
   // ---------- settings ----------
   async updateSettings(next: Settings): Promise<void> {
     const prev = this.settings;
@@ -378,7 +433,10 @@ export class Pipeline {
     }
     this.metrics.log('comment_selected', { job: job.id, id: msg.id, author: msg.authorName, text: sel.text, approval: s.approvalMode });
     this.log('info', `selected [${job.id}] ${msg.authorName}: ${sel.text}${s.approvalMode ? ' (awaiting approval)' : ''}`);
-    if (!s.approvalMode) this.pump();
+    if (!s.approvalMode) {
+      this.pump();
+      this.playAck(job);
+    }
     this.pushState();
   }
 
@@ -420,7 +478,9 @@ export class Pipeline {
   private activeCount(): number {
     let n = 0;
     for (const id of this.order) {
-      const st = this.jobs.get(id)?.status;
+      const j = this.jobs.get(id);
+      if (j?.isAck) continue;
+      const st = j?.status;
       if (st === 'queued' || st === 'generating' || st === 'ready') n++;
     }
     return n;
@@ -552,7 +612,11 @@ export class Pipeline {
       clearTimeout(timeout);
     }
     this.pushState();
-    this.pumpPlay();
+    if (this.current?.isAck && this.current.forJob === job.id && Date.now() - (this.current.playStartAt ?? 0) >= 2500) {
+      this.playbackEnded(this.current.id, 'cut-for-reaction');
+    } else {
+      this.pumpPlay();
+    }
     this.pump();
   }
 
@@ -631,7 +695,7 @@ export class Pipeline {
     if (this.playTimer) clearTimeout(this.playTimer);
     job.status = 'done';
     job.playEndAt = Date.now();
-    this.stats.played++;
+    if (!job.isAck) this.stats.played++;
     this.metrics.log('play_end', { job: jobId, source, playMs: job.playEndAt - (job.playStartAt ?? job.playEndAt) });
     this.current = undefined;
     this.pushState();
@@ -659,6 +723,7 @@ export class Pipeline {
       reply: j.reply,
       action: j.action,
       ackVoiceUrl: j.ackVoiceUrl,
+      isAck: j.isAck,
       status: j.status,
       clipUrl: j.localUrl ?? j.result?.clipUrl,
       kind: j.result?.kind,
@@ -680,16 +745,16 @@ export class Pipeline {
       budgetUsd: this.settings.budgetUsd,
       budgetExhausted: this.budgetExhausted,
       pending: all.filter((j) => j.status === 'pending_approval').map((j) => this.toPublic(j)),
-      queue: all.filter((j) => j.status === 'queued' || j.status === 'generating' || j.status === 'ready').map((j) => this.toPublic(j)),
+      queue: all.filter((j) => !j.isAck && (j.status === 'queued' || j.status === 'generating' || j.status === 'ready')).map((j) => this.toPublic(j)),
       current: this.current ? this.toPublic(this.current) : undefined,
       recent: all
-        .filter((j) => j.status === 'done' || j.status === 'failed' || j.status === 'rejected')
+        .filter((j) => !j.isAck && (j.status === 'done' || j.status === 'failed' || j.status === 'rejected'))
         .slice(-10)
         .reverse()
         .map((j) => this.toPublic(j)),
       stats: { ...this.stats },
       youtube: this.adapter?.stats?.() as PublicState['youtube'],
-      persona: p ? { id: p.id, name: p.name, refs: this.refs(undefined, false).images.length, voice: !!this.refs(undefined, false).voice, idleClips: p.idle?.clips.length ?? 0, confirmed: !!p.references.confirmed } : undefined,
+      persona: p ? { id: p.id, name: p.name, refs: this.refs(undefined, false).images.length, voice: !!this.refs(undefined, false).voice, idleClips: p.idle?.clips.length ?? 0, ackClips: p.ack?.clips.length ?? 0, confirmed: !!p.references.confirmed } : undefined,
       idleJob: this.idleJob ? { running: this.idleJob.running, done: this.idleJob.done, total: this.idleJob.total } : undefined,
     };
   }

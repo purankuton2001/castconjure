@@ -178,7 +178,9 @@
         <label data-i18n="replySys">Reply system prompt (empty = generated from the personality)</label><textarea id="pReplySys"></textarea>
         <div class="bar"><button class="primary" id="bPersonaSave" data-i18n="savePersona">Save persona</button><span class="muted" id="pMsg"></span></div>
 
-        <h3>4. <span data-i18n="idlePool">Idle pool</span></h3>
+        <h3>4. <span data-i18n="idlePool">Idle pool</span> · <span data-i18n="ackPool">Ack clips</span></h3>
+        <p class="muted" data-i18n="ackNote">Ack clips: 6 short spoken "noticed your comment" clips played instantly while the reaction generates — no dead time, no spoiler.</p>
+        <div class="bar"><button id="bAck" data-i18n="genAck">Generate ack clips (6)</button><span class="muted" id="ackMsg"></span></div>
         <div class="row">
           <div><label data-i18n="count">Count</label><input type="number" id="idleCount" min="1" max="60" /></div>
           <div><label>&nbsp;</label><div class="bar" style="margin:0"><button id="bIdle" data-i18n="generate">Generate</button><button id="bIdleCancel" class="danger" data-i18n="cancel">Cancel</button></div></div>
@@ -220,7 +222,8 @@
         </div>
         <div class="chk"><input type="checkbox" name="audio" id="audio" /><label for="audio" style="margin:0" data-i18n="audioOpt">Generate with audio (her spoken line; overlay needs ?audio=1)</label></div>
         <div class="chk"><input type="checkbox" name="showAiBadge" id="showAiBadge" /><label for="showAiBadge" style="margin:0" data-i18n="badgeOpt">Show "AI generated" badge</label></div>
-        <div class="chk"><input type="checkbox" name="instantReply" id="instantReply" /><label for="instantReply" style="margin:0" data-i18n="instantOpt">Instant reply (subtitle + spoken line appear within ~1 s while the clip generates)</label></div>
+        <div class="chk"><input type="checkbox" name="ackClips" id="ackClips" /><label for="ackClips" style="margin:0" data-i18n="ackOpt">Bridge the wait with an ack clip (she notices the comment; the reply stays a surprise)</label></div>
+        <div class="chk"><input type="checkbox" name="instantReply" id="instantReply" /><label for="instantReply" style="margin:0" data-i18n="instantOpt">Show the reply subtitle before the clip (spoils the reaction — off by default)</label></div>
         <div class="chk"><input type="checkbox" name="replyMode" id="replyMode" /><label for="replyMode" style="margin:0" data-i18n="replyOpt">Reply mode (an LLM answers each comment in her voice, in the commenter's language; REPLY_PROVIDER)</label></div>
       </section>
 
@@ -263,7 +266,7 @@
     gachaPrompt: 'プロンプト（空なら推しの顔プロンプト）', draw4: '4 枚引く', voice: '声', voiceNote: '言語ごとに TTS で参照音声を生成（実在人物の声は使わない）。推しはコメントの言語で返し、その言語の声を使います。',
     voiceText: 'サンプル台詞（空なら言語ごとの既定）', personality: '人格', catchphrase: 'キャッチコピー', appearance: '見た目（英語、毎回プロンプトに入る）', signatures: 'シグネチャ（カンマ区切り、毎回必ず映す。一貫性の手がかり）',
     worldDefault: '既定の世界観プロンプト（英語）', tone: '話し方', tics: '口癖（カンマ区切り）', forbidden: '禁止事項（1 行 1 項目、英語。プロンプトの Never: に入る）', replySys: '返事モードのシステムプロンプト（空なら人格から自動生成）',
-    savePersona: '人格を保存', seed: 'Seed（推しごとに固定。同じ seed と同じ説明文で顔と声が揃う）', voiceDesc: '声の説明（英語、毎回プロンプトに入る）', idlePool: '待機映像プール', count: '本数', generate: '生成する', cancel: '中止', platform: 'プラットフォーム', videoId: 'YouTube 動画 ID',
+    savePersona: '人格を保存', ackPool: '気づきクリップ', ackNote: '気づきクリップ：コメントに気づいて一言言う 5 秒のクリップを 6 本。反応の生成中に即時再生して、間を埋めつつ返事はネタバレしない。', genAck: '気づきクリップを生成（6 本）', ackOpt: '待ち時間を気づきクリップで埋める（返事は映像と同時）', seed: 'Seed（推しごとに固定。同じ seed と同じ説明文で顔と声が揃う）', voiceDesc: '声の説明（英語、毎回プロンプトに入る）', idlePool: '待機映像プール', count: '本数', generate: '生成する', cancel: '中止', platform: 'プラットフォーム', videoId: 'YouTube 動画 ID',
     ytNote: 'YouTube: .env に YOUTUBE_API_KEY を入れ、配信を開始してから動画 ID を貼って Save → Start。', generation: '生成', resolution: '解像度', duration: '長さ（秒）', budget: 'セッション予算（USD）', maxQueue: 'キュー上限',
     audioOpt: '音声ありで生成（推しの台詞。overlay に ?audio=1）', genMode: '反応クリップの生成方式', genModeNote: 'i2v は待機ループのフレームから始めるので継ぎ目がなく 3 倍速い。参照音声は渡せないので、声はプロンプトの説明で寄せる。', refMode: '1 クリップに送る参照画像（速度 ↔ 一貫性）', voiceRefOpt: '参照音声を送る（毎回同じ声、約 +6 秒）', instantOpt: '即時返事（クリップ生成中に字幕と台詞音声を約 1 秒で出す）', badgeOpt: '「AI 生成」表記を出す', replyOpt: '返事モード（LLM が推しの一言をコメントの言語で返す。REPLY_PROVIDER）',
     world: '世界観プロンプト（配信ごと）', worldPh: '空なら推しの既定の世界観', selection: '選定と安全', minInterval: '最小間隔（秒）', cooldown: '同一ユーザー冷却（秒）', maxChars: 'コメント最大文字数',
@@ -363,7 +366,7 @@
     list('queue', (st.current ? [st.current] : []).concat(st.queue), false, T('empty') || 'empty');
     list('recent', st.recent, false, T('none') || 'none');
     if (st.idleJob && st.idleJob.running) $('idleMsg').textContent = S.idleGen(st.idleJob.done, st.idleJob.total);
-    else if (st.persona) $('idleMsg').textContent = S.idle(st.persona.idleClips) + (st.persona.refs < 3 ? (LANG === 'ja' ? '（参照セットが 3 枚未満）' : ' (reference set incomplete)') : '');
+    else if (st.persona) $('idleMsg').textContent = S.idle(st.persona.idleClips) + ' · ack ' + st.persona.ackClips + (st.persona.refs < 3 ? (LANG === 'ja' ? '（参照セットが 3 枚未満）' : ' (reference set incomplete)') : '');
   }
   function addLog(level, line, t) {
     const pre = $('log');
@@ -453,6 +456,11 @@
     const r = await api('/api/persona/idle', { count }); if (r.error) alert(r.error);
   };
   $('bIdleCancel').onclick = () => api('/api/persona/idle', { action: 'cancel' });
+  $('bAck').onclick = async () => {
+    const est = await fetch('/api/persona/idle/estimate?count=6').then(r => r.json());
+    if (!confirm((LANG === 'ja' ? '気づきクリップを 6 本生成します。推定 $' : 'Generate 6 ack clips, estimated $') + est.totalUsd.toFixed(2))) return;
+    const r = await api('/api/persona/ack', { count: 6 }); $('ackMsg').textContent = r.error || S.gen;
+  };
 
   fetch('/api/state').then(r => r.json()).then(d => {
     fill(d.settings); render(d.state); $('tBackend').textContent = d.backend; $('metricsFile').textContent = d.metricsFile;

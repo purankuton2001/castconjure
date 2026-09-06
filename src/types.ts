@@ -66,6 +66,8 @@ export interface Persona {
   voice?: { description?: string; sampleLine?: string; /** fal MiniMax cloned voice id (from the H3-generated reference) */ customVoiceId?: string; /** where the reference came from: h3 | tts */ source?: 'h3' | 'tts' };
   replySystemPrompt?: string;
   idle?: { clips: IdleClip[]; prompts?: string[] };
+  /** Pre-generated "noticed your comment" clips (5 s, spoken): played instantly while the reaction generates. */
+  ack?: { clips: IdleClip[] };
 }
 
 export interface IdleClip {
@@ -91,8 +93,10 @@ export interface Settings {
   replyMode: boolean;
   /** Idle pool size to generate (F-13). */
   idlePoolSize: number;
-  /** Instant acknowledgement: show the reply subtitle (and speak it via TTS when audio is on) while the clip generates. */
+  /** Show the reply subtitle before the clip (spoils the reaction; off by default). */
   instantReply: boolean;
+  /** Bridge the wait with a pre-generated "noticed your comment" clip from the persona's ack pool. */
+  ackClips: boolean;
   /** Which reference images to send (speed vs consistency): face ≈ 9 s, face+scene ≈ 10 s, all three ≈ 13 s with voice. */
   refMode: 'face' | 'face+scene' | 'all';
   /** Send the reference voice (voice consistency, ≈ +6 s). Off = H3 picks a voice per clip. */
@@ -197,6 +201,10 @@ export interface Job {
   ackVoiceUrl?: string;
   /** Same-origin URL for the clip (/clips/<job>.mp4), proxied from the CDN until cached. */
   localUrl?: string;
+  /** Acknowledgement clip (from the persona's ack pool) that bridges the wait for this job's reaction. */
+  isAck?: boolean;
+  /** For an ack job: the id of the reaction job it bridges. */
+  forJob?: string;
   status: JobStatus;
   createdAt: number;
   approvedAt?: number;
@@ -229,6 +237,7 @@ export interface PublicJob {
   reply?: string;
   action?: string;
   ackVoiceUrl?: string;
+  isAck?: boolean;
   status: JobStatus;
   clipUrl?: string;
   kind?: 'video' | 'card';
@@ -250,6 +259,6 @@ export interface PublicState {
   recent: PublicJob[];
   stats: { received: number; filtered: number; generated: number; failed: number; played: number };
   youtube?: { polls: number; estUnits: number; lastIntervalMs: number };
-  persona?: { id: string; name: string; refs: number; voice: boolean; idleClips: number; confirmed: boolean };
+  persona?: { id: string; name: string; refs: number; voice: boolean; idleClips: number; ackClips: number; confirmed: boolean };
   idleJob?: { running: boolean; done: number; total: number };
 }
