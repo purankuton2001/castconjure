@@ -8,7 +8,32 @@ What to post, where, in which order. Everything below is written to be pasted; e
 - [ ] Make it public: `gh repo edit purankuton2001/castconjure --visibility public --accept-visibility-change-consequences`
 - [ ] **Right after going public** — Settings → General → **Social preview**: upload `docs/social-preview.png` (1280×640). The field only exists on public repos, and there is no API for it.
 - [ ] **Right after going public** — Settings → Security → enable **Private vulnerability reporting** (CONTRIBUTING and SECURITY.md point people there)
-- [ ] **Right after going public** — Settings → Branches → add a ruleset for `main`: require a pull request, **1 approving review**, **Require review from Code Owners**, **Dismiss stale approvals on push**, and require the `test (20)` / `test (22)` status checks from `.github/workflows/ci.yml`. CODEOWNERS and the CI workflow are already in the repo; the ruleset is the only part that lives in Settings.
+- [ ] Add `.github/workflows/ci.yml` from a normal git push (the Claude GitHub App cannot create workflow files). Content:
+
+  ```yaml
+  name: ci
+  on:
+    pull_request:
+    push:
+      branches: [main]
+  jobs:
+    test:
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          node: [20, 22]
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-node@v4
+          with:
+            node-version: ${{ matrix.node }}
+            cache: npm
+        - run: npm ci
+        - run: npm run typecheck
+        - run: npm test
+  ```
+
+- [ ] **Right after going public** — Settings → Branches → add a ruleset for `main`: require a pull request, **1 approving review**, **Require review from Code Owners**, **Dismiss stale approvals on push**, and require the `test (20)` / `test (22)` status checks from the workflow above. CODEOWNERS is already in the repo; the ruleset is the only part that lives in Settings.
 - [ ] Topics: `ai-vtuber` `vtuber` `virtual-idol` `text-to-video` `minimax` `h3` `fal` `obs` `youtube-live` `livestream` `kpop` `anime` `generative-video` `typescript` `open-source`
 - [ ] Discussions: create the Q&A + Show and tell categories, pin a "Post your persona (your own OC only)" thread
 - [ ] Description: *Your own virtual idol, generated — not lip-synced. Chat makes her dance, eat, talk and change scenes, live. OSS, BYOK.*
