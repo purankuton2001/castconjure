@@ -1,0 +1,10 @@
+# Safety-critical paths need a maintainer's approval in addition to the regular review.
+# Branch protection enforces this with "Require review from Code Owners".
+/src/filter/               @purankuton2001
+/data/ip-names.txt         @purankuton2001
+/data/ng-words.txt         @purankuton2001
+/src/persona/facegen.ts    @purankuton2001
+/src/persona/voice.ts      @purankuton2001
+/SECURITY.md               @purankuton2001
+/.github/CODEOWNERS        @purankuton2001
+/.github/workflows/        @purankuton2001
