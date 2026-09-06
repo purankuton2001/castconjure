@@ -68,8 +68,11 @@ if a.minimal:
     for i, e in enumerate(events):
         tp = e.get("tPlay"); nxt = events[i + 1].get("tComment") if i + 1 < len(events) else None
         until = nxt if nxt is not None else dur + 1
-        if tp is not None:
-            add(pill(f"on screen {e.get('latency', '?')}s after the comment  ·  {e.get('cost', '$0.25')}", 16, (140, 240, 192, 255), pad=(10, 5)), OVX + 12, OVY + OVH - 40, f"between(t,{tp:.2f},{until:.2f})")
+        if tp is not None and e.get("isAck"):
+            nxt_play = next((x.get("tPlay") for x in events[i + 1:] if x.get("tPlay") is not None), None)
+            add(pill(f"she noticed the comment — ack clip, {e.get('latency', '?')}s after the comment (pre-generated)", 16, (255, 230, 150, 255), pad=(10, 5)), OVX + 12, OVY + OVH - 40, f"between(t,{tp:.2f},{(nxt_play if nxt_play is not None else until):.2f})")
+        elif tp is not None:
+            add(pill(f"her reaction — on screen {e.get('latency', '?')}s after the comment  ·  {e.get('cost', '$0.25')}", 16, (140, 240, 192, 255), pad=(10, 5)), OVX + 12, OVY + OVH - 40, f"between(t,{tp:.2f},{until:.2f})")
     badge = pill("castconjure · live recording, not edited · generated persona (AI)", 14, (255, 255, 255, 220), pad=(8, 5), bg=(0, 0, 0, 115))
     add(badge, OVX + OVW - badge.width - 12, OVY + 10, "1")
 if not a.minimal and first_tc is not None and first_tc > 0.5:
@@ -78,14 +81,18 @@ for i, e in (enumerate(events) if not a.minimal else []):
     tc = e.get("tComment"); tg = e.get("tGen"); tp = e.get("tPlay"); ta = e.get("tAck")
     nxt = events[i + 1].get("tComment") if i + 1 < len(events) else None
     until = nxt if nxt is not None else dur + 1
-    if tc is not None:
-        add(bubble(e["author"], e["comment"]), 24, 24, f"between(t,{tc:.2f},{until:.2f})")
+    if tc is not None and not (i > 0 and events[i - 1].get("tComment") == tc):
+        nxt_tc = next((x.get("tComment") for x in events[i + 1:] if x.get("tComment") != tc), None)
+        add(bubble(e["author"], e["comment"]), 24, 24, f"between(t,{tc:.2f},{(nxt_tc if nxt_tc is not None else dur + 1):.2f})")
     if tg is not None:
         add(pill("generating her reaction… (fal H3 Max Turbo)", 24, (201, 191, 255, 255)), 24, 150, f"between(t,{tg:.2f},{(tp if tp is not None else tg + 60):.2f})")
     if ta is not None and e.get("reply"):
         add(pill(f"she answers right away: “{e['reply']}”  (subtitle + cloned voice)", 24, (255, 230, 150, 255)), 24, 206, f"between(t,{ta:.2f},{(tp if tp is not None else ta + 60):.2f})")
-    if tp is not None:
-        add(pill(f"on screen {e.get('latency', '?')}s after the comment  ·  480p · 5s · {e.get('cost', '$0.25')}" + (f"  ·  she says: “{e['reply']}”" if e.get("reply") else ""), 24, (140, 240, 192, 255)), 24, 150, f"between(t,{tp:.2f},{until:.2f})")
+    if tp is not None and e.get("isAck"):
+        nxt_play = next((x.get("tPlay") for x in events[i + 1:] if x.get("tPlay") is not None), None)
+        add(pill(f"she noticed the comment (ack clip, pre-generated) — {e.get('latency', '?')}s after the comment", 24, (255, 230, 150, 255)), 24, 150, f"between(t,{tp:.2f},{(nxt_play if nxt_play is not None else until):.2f})")
+    elif tp is not None:
+        add(pill(f"her reaction — on screen {e.get('latency', '?')}s after the comment  ·  480p · 5s · {e.get('cost', '$0.25')}" + (f"  ·  she says: “{e['reply']}”" if e.get("reply") else ""), 24, (140, 240, 192, 255)), 24, 150, f"between(t,{tp:.2f},{until:.2f})")
 if not a.minimal:
     badge = pill("castconjure · live recording, not edited · generated persona (AI)", 18, (255, 255, 255, 220), pad=(10, 6), bg=(0, 0, 0, 115))
     add(badge, 1280 - badge.width - 24, 720 - badge.height - 24, "1")

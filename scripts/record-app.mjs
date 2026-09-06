@@ -73,15 +73,20 @@ for (let i = 0; i < comments.length; i++) {
   const tComment = Date.now();
   await clickIn('bSend');
   await page.evaluate((l) => window.termLine(l, 'd'), `chat  ${author}: ${comment}`);
-  const ev = { author, comment, tComment, tGen: 0, tPlay: 0, tEnd: 0, reply: '', jobId: '', clipUrl: '' };
+  const ev = { author, comment, tComment, tGen: 0, tPlay: 0, tEnd: 0, reply: '', jobId: '', clipUrl: '', plays: [] };
   for (let k = 0; k < 600; k++) {
     await sleep(200);
     const s = (await api('/api/state')).state;
     const mine = (j) => j.text === comment && !seenIds.has(j.id);
     const gen = s.queue.find((j) => mine(j) && j.status === 'generating');
     if (gen && !ev.tGen) ev.tGen = Date.now();
-    if (s.current && mine(s.current) && !ev.tPlay) { ev.tPlay = Date.now(); ev.reply = s.current.reply || ''; ev.clipUrl = s.current.clipUrl || ''; ev.jobId = s.current.id; console.log(`${i + 1}/${comments.length} "${comment}" → on screen after ${((ev.tPlay - tComment) / 1000).toFixed(1)}s, reply "${ev.reply}"`); page.evaluate((l) => window.termLine(l, 'd'), `reply ${ev.reply}   ·   on screen ${((ev.tPlay - tComment) / 1000).toFixed(1)}s`).catch(() => {}); }
-    if (ev.tPlay && !(s.current && mine(s.current))) { ev.tEnd = Date.now(); break; }
+    const cur = s.current && mine(s.current) ? s.current : null;
+    if (cur && !ev.plays.some((p) => p.id === cur.id)) {
+      ev.plays.push({ id: cur.id, isAck: !!cur.isAck, clipUrl: cur.clipUrl || '', tPlay: Date.now(), reply: cur.reply || '' });
+      if (cur.isAck) { console.log(`   ack clip on screen after ${((Date.now() - tComment) / 1000).toFixed(1)}s`); page.evaluate((l) => window.termLine(l, 'd'), `she noticed the comment (ack clip) · ${((Date.now() - tComment) / 1000).toFixed(1)}s`).catch(() => {}); }
+      else { ev.tPlay = Date.now(); ev.reply = cur.reply || ''; ev.clipUrl = cur.clipUrl || ''; ev.jobId = cur.id; console.log(`${i + 1}/${comments.length} "${comment}" → reaction on screen after ${((ev.tPlay - tComment) / 1000).toFixed(1)}s, reply "${ev.reply}"`); page.evaluate((l) => window.termLine(l, 'd'), `reply ${ev.reply}   ·   reaction on screen ${((ev.tPlay - tComment) / 1000).toFixed(1)}s`).catch(() => {}); }
+    }
+    if (ev.tPlay && !cur) { ev.tEnd = Date.now(); break; }
     const failed = s.recent.find((j) => mine(j) && j.status === 'failed');
     if (failed && !ev.tPlay) { console.error(`generation failed for "${comment}":`, failed.error || ''); page.evaluate((l) => window.termLine(l, 'd'), `generation failed: ${(failed.error || '').slice(0, 80)}`).catch(() => {}); break; }
   }
@@ -99,15 +104,26 @@ const webm = await video.path();
 const rel = (t) => (t - tCtx) / 1000;
 const crop = `${OV.x}:${OV.y}:${OV.w}:${OV.h}`;
 const out_events = [];
+const clipPath = (u, jobId) => u.startsWith('/personas/') ? path.resolve(ROOT, 'data/personas', decodeURIComponent(u.slice('/personas/'.length))) : path.resolve(ROOT, 'data/clips', u.startsWith('/clips/') ? path.basename(u) : `${jobId}.mp4`);
 for (const ev of events) {
-  const clipFile = path.resolve(ROOT, 'data/clips', ev.clipUrl.startsWith('/clips/') ? path.basename(ev.clipUrl) : `${ev.jobId}.mp4`);
-  let tPlay = rel(ev.tPlay);
-  if (fs.existsSync(clipFile)) {
-    const al = spawnSync('python3', [path.join(ROOT, 'scripts/align-clip.py'), '--rec', webm, '--clip', clipFile, '--approx', tPlay.toFixed(2), '--crop', crop], { encoding: 'utf8' });
-    const v = parseFloat(al.stdout.trim());
-    if (Number.isFinite(v)) { console.log(`aligned "${ev.comment}": api ${tPlay.toFixed(2)}s → frames ${v.toFixed(2)}s`); tPlay = v; }
+  for (const pl of ev.plays) {
+    const clipFile = clipPath(pl.clipUrl, pl.id);
+    let tPlay = rel(pl.tPlay);
+    if (fs.existsSync(clipFile)) {
+      const alArgs = [path.join(ROOT, 'scripts/align-clip.py'), '--rec', webm, '--clip', clipFile, '--approx', tPlay.toFixed(2)];
+      if (typeof crop !== 'undefined') alArgs.push('--crop', crop);
+      const al = spawnSync('python3', alArgs, { encoding: 'utf8' });
+      const v = parseFloat(al.stdout.trim());
+      if (Number.isFinite(v)) { console.log(`aligned ${pl.isAck ? 'ack' : 'reaction'} "${ev.comment}": api ${tPlay.toFixed(2)}s → frames ${v.toFixed(2)}s`); tPlay = v; }
+    }
+    const ackFile = pl.isAck ? '' : path.resolve(ROOT, 'data/clips', `${pl.id}.reply.mp3`);
+    out_events.push({
+      author: ev.author, comment: ev.comment, reply: pl.isAck ? '' : ev.reply, isAck: pl.isAck,
+      latency: ((pl.tPlay - ev.tComment) / 1000).toFixed(1),
+      tComment: rel(ev.tComment), tGen: pl.isAck ? null : (ev.tGen ? rel(ev.tGen) : null), tPlay, tAck: null,
+      audio: fs.existsSync(clipFile) ? clipFile : null, ackAudio: ackFile && fs.existsSync(ackFile) ? ackFile : null, cost: pl.isAck ? '$0' : '$0.25',
+    });
   }
-  out_events.push({ author: ev.author, comment: ev.comment, reply: ev.reply, latency: ((ev.tPlay - ev.tComment) / 1000).toFixed(1), tComment: rel(ev.tComment), tGen: ev.tGen ? rel(ev.tGen) : null, tPlay, tAck: null, audio: fs.existsSync(clipFile) ? clipFile : null, ackAudio: null, cost: '$0.25' });
 }
 const evFile = path.join(tmp, 'events.json');
 fs.writeFileSync(evFile, JSON.stringify(out_events, null, 2));

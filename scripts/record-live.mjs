@@ -53,7 +53,7 @@ for (let i = 0; i < comments.length; i++) {
   const tComment = Date.now();
   const posted = replays.length ? await api('/api/replay', { file: replays[i].file, text: comment, author, reply: `${author}, let's do it!` }) : await api('/api/comment', { text: comment, author });
   if (!posted.ok) { console.log(`skip "${comment}": ${posted.error}`); continue; }
-  const ev = { author, comment, tComment, tGen: 0, tAck: 0, tPlay: 0, tEnd: 0, reply: '', jobId: '', clipUrl: '' };
+  const ev = { author, comment, tComment, tGen: 0, tAck: 0, tPlay: 0, tEnd: 0, reply: '', jobId: '', clipUrl: '', plays: [] };
   for (let k = 0; k < 600; k++) {
     await sleep(200);
     const s = (await api('/api/state')).state;
@@ -62,8 +62,13 @@ for (let i = 0; i < comments.length; i++) {
     if (gen && !ev.tGen) ev.tGen = Date.now();
     const ack = [...s.queue, ...(s.current ? [s.current] : [])].find((j) => mine(j) && j.ackVoiceUrl);
     if (ack && !ev.tAck) ev.tAck = Date.now();
-    if (s.current && mine(s.current) && !ev.tPlay) { ev.tPlay = Date.now(); ev.reply = s.current.reply || ''; ev.clipUrl = s.current.clipUrl || ''; ev.jobId = s.current.id; console.log(`${i + 1}/${comments.length} "${comment}" → on screen after ${((ev.tPlay - tComment) / 1000).toFixed(1)}s, reply "${ev.reply}"`); }
-    if (ev.tPlay && !(s.current && mine(s.current))) { ev.tEnd = Date.now(); break; }
+    const cur = s.current && mine(s.current) ? s.current : null;
+    if (cur && !ev.plays.some((p) => p.id === cur.id)) {
+      ev.plays.push({ id: cur.id, isAck: !!cur.isAck, clipUrl: cur.clipUrl || '', tPlay: Date.now(), reply: cur.reply || '' });
+      if (cur.isAck) console.log(`   ack clip on screen after ${((Date.now() - tComment) / 1000).toFixed(1)}s`);
+      else { ev.tPlay = Date.now(); ev.reply = cur.reply || ''; ev.clipUrl = cur.clipUrl || ''; ev.jobId = cur.id; console.log(`${i + 1}/${comments.length} "${comment}" → reaction on screen after ${((ev.tPlay - tComment) / 1000).toFixed(1)}s, reply "${ev.reply}"`); }
+    }
+    if (ev.tPlay && !cur) { ev.tEnd = Date.now(); break; }
     const failed = s.recent.find((j) => mine(j) && j.status === 'failed');
     if (failed && !ev.tPlay) { console.error(`generation failed for "${comment}":`, failed.error || ''); break; }
   }
@@ -80,22 +85,26 @@ const webm = await video.path();
 // per event: cached clip file (playback used the CDN URL; the cache lands a few seconds later), then frame-align the clip
 const rel = (t) => (t - tCtx) / 1000;
 const out_events = [];
+const clipPath = (u, jobId) => u.startsWith('/personas/') ? path.resolve(ROOT, 'data/personas', decodeURIComponent(u.slice('/personas/'.length))) : path.resolve(ROOT, 'data/clips', u.startsWith('/clips/') ? path.basename(u) : `${jobId}.mp4`);
 for (const ev of events) {
-  let clipFile = path.resolve(ROOT, 'data/clips', ev.clipUrl.startsWith('/clips/') ? path.basename(ev.clipUrl) : `${ev.jobId}.mp4`);
-  for (let k = 0; !fs.existsSync(clipFile) && k < 40; k++) await sleep(500);
-  if (!fs.existsSync(clipFile) && /^https?:/.test(ev.clipUrl)) fs.writeFileSync(clipFile, Buffer.from(await (await fetch(ev.clipUrl)).arrayBuffer()));
-  let tPlay = rel(ev.tPlay);
-  if (fs.existsSync(clipFile)) {
-    const al = spawnSync('python3', [path.join(ROOT, 'scripts/align-clip.py'), '--rec', webm, '--clip', clipFile, '--approx', tPlay.toFixed(2)], { encoding: 'utf8' });
-    const v = parseFloat(al.stdout.trim());
-    if (Number.isFinite(v)) { console.log(`aligned "${ev.comment}": api ${tPlay.toFixed(2)}s → frames ${v.toFixed(2)}s`); tPlay = v; }
+  for (const pl of ev.plays) {
+    const clipFile = clipPath(pl.clipUrl, pl.id);
+    let tPlay = rel(pl.tPlay);
+    if (fs.existsSync(clipFile)) {
+      const alArgs = [path.join(ROOT, 'scripts/align-clip.py'), '--rec', webm, '--clip', clipFile, '--approx', tPlay.toFixed(2)];
+      if (typeof crop !== 'undefined') alArgs.push('--crop', crop);
+      const al = spawnSync('python3', alArgs, { encoding: 'utf8' });
+      const v = parseFloat(al.stdout.trim());
+      if (Number.isFinite(v)) { console.log(`aligned ${pl.isAck ? 'ack' : 'reaction'} "${ev.comment}": api ${tPlay.toFixed(2)}s → frames ${v.toFixed(2)}s`); tPlay = v; }
+    }
+    const ackFile = pl.isAck ? '' : path.resolve(ROOT, 'data/clips', `${pl.id}.reply.mp3`);
+    out_events.push({
+      author: ev.author, comment: ev.comment, reply: pl.isAck ? '' : ev.reply, isAck: pl.isAck,
+      latency: ((pl.tPlay - ev.tComment) / 1000).toFixed(1),
+      tComment: rel(ev.tComment), tGen: pl.isAck ? null : (ev.tGen ? rel(ev.tGen) : null), tPlay, tAck: null,
+      audio: fs.existsSync(clipFile) ? clipFile : null, ackAudio: ackFile && fs.existsSync(ackFile) ? ackFile : null, cost: pl.isAck ? '$0' : '$0.25',
+    });
   }
-  const ackFile = path.resolve(ROOT, 'data/clips', `${ev.jobId}.reply.mp3`);
-  out_events.push({
-    author: ev.author, comment: ev.comment, reply: ev.reply, latency: ((ev.tPlay - ev.tComment) / 1000).toFixed(1),
-    tComment: rel(ev.tComment), tGen: ev.tGen ? rel(ev.tGen) : null, tPlay, tAck: ev.tAck ? rel(ev.tAck) : null,
-    audio: fs.existsSync(clipFile) ? clipFile : null, ackAudio: fs.existsSync(ackFile) ? ackFile : null, cost: '$0.25',
-  });
 }
 const evFile = path.join(tmp, 'events.json');
 fs.writeFileSync(evFile, JSON.stringify(out_events, null, 2));
