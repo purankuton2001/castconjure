@@ -4,10 +4,11 @@ What to post, where, in which order. Everything below is written to be pasted; e
 
 ## Before the first post
 
-- [ ] `gh repo create purankuton2001/castconjure --public --source=. --push`
-- [ ] Repository → Settings → **Social preview**: upload `docs/social-preview.png` (1280×640)
+- [x] Private repo pushed (`purankuton2001/castconjure`), history slimmed to ~25 MB, Discussions enabled
+- [ ] Make it public: `gh repo edit purankuton2001/castconjure --visibility public --accept-visibility-change-consequences`
+- [ ] **Right after going public** — Settings → General → **Social preview**: upload `docs/social-preview.png` (1280×640). The field only exists on public repos, and there is no API for it.
 - [ ] Topics: `ai-vtuber` `vtuber` `virtual-idol` `text-to-video` `minimax` `h3` `fal` `obs` `youtube-live` `livestream` `kpop` `anime` `generative-video` `typescript` `open-source`
-- [ ] Enable **Discussions** (Q&A + Show and tell), pin a "Post your persona (your own OC only)" thread
+- [ ] Discussions: create the Q&A + Show and tell categories, pin a "Post your persona (your own OC only)" thread
 - [ ] Description: *Your own virtual idol, generated — not lip-synced. Chat makes her dance, eat, talk and change scenes, live. OSS, BYOK.*
 - [ ] `docs/app-demo.mp4` uploaded to YouTube (unlisted is fine) for the posts that need a video link
 - [ ] One demo stream recorded with a real chat (not the test panel) — the strongest asset; post the clip, not the GIF, wherever video is allowed
