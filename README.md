@@ -1,275 +1,168 @@
 <p align="center">
-  <img src="docs/demo.gif" alt="castconjure — chat says dance, the generated persona dances" width="820">
+  <a href="README.md">English</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a>
 </p>
 
 <h1 align="center">castconjure</h1>
 
+<p align="center"><b>Your own virtual idol, generated — not lip-synced.</b></p>
 <p align="center">
-  <b>Photoreal AI VTubers. Generated, not lip-synced.</b><br>
-  Conjure a face once. Your chat makes her dance, eat, talk and change scenes — live, in any language your fans speak.<br>
-  Built for the K-pop / anime fandom era: one idol, a global chat, no modelling, no rigging. Open source, bring your own key.
+  Conjure a face once. Your live chat makes her dance, eat, talk and change scenes —<br>
+  on your stream, ~6 seconds after the comment, in whatever language your fans speak.
+</p>
+
+<p align="center">
+  <img src="docs/hero.gif" alt="A viewer types dance!! — she notices the comment within 0.2 s, then dances 7 s later, with her own voice" width="720">
 </p>
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-7c5cff"></a>
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A520-3ecf8e">
-  <img alt="backend" src="https://img.shields.io/badge/backend-fal%20H3%20Max%20%7C%20local%20ComfyUI%20%7C%20mock-1f2230">
+  <img alt="model" src="https://img.shields.io/badge/video-MiniMax%20H3%20Max%20Turbo%20via%20fal-1f2230">
   <img alt="chat" src="https://img.shields.io/badge/chat-YouTube%20Live-ff0000">
-  <img alt="status" src="https://img.shields.io/badge/status-MVP%20%C2%B7%20demo%20streams%20in%20progress-f5a623">
+  <img alt="latency" src="https://img.shields.io/badge/comment%20%E2%86%92%20screen-~6%20s-f5a623">
+  <a href="https://github.com/purankuton2001/castconjure/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/purankuton2001/castconjure?style=flat&color=e8e9ee"></a>
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#how-it-works">How it works</a> ·
+  <a href="#quick-start-10-minutes">Quick start</a> ·
+  <a href="#how-it-feels">How it feels</a> ·
+  <a href="#why-not-a-lip-sync-avatar">Why</a> ·
   <a href="#cost">Cost</a> ·
-  <a href="#safety">Safety</a> ·
-  <a href="#日本語">日本語</a>
+  <a href="#safety-by-design">Safety</a> ·
+  <a href="docs/GUIDE.md">Guide (JA)</a> ·
+  <a href="https://github.com/purankuton2001/castconjure/discussions">Discussions</a>
 </p>
 
 ---
 
+**castconjure** is an open-source, bring-your-own-key tool that turns a generated character into a live streamer. There is no 3D model, no rigging, no motion capture and no lip-sync puppet: every reaction is a freshly generated 5-second video with her own voice. Lip-sync avatars move a mouth. castconjure generates the whole shot — action, outfit, camera, scene.
+
+Built for the K-pop / anime fandom era: one idol, a global chat, your own original character only.
+
+## How it feels
+
 ```
- create once      face gacha ─► reference set (face / full / scene) ─► TTS voice ─► personality ─► idle pool
-                  (generated in-app only — there is no photo upload, by design)
-
- live             idle loop ◄──────────────────────────────────────────────────────────────────┐
-                  viewer comment ─► filter ─► (reply: LLM one-liner) ─► prompt ─► H3 Max r2v ─► reaction clip
-                                    NG words / real-person guard / rate / approval          "〇〇's comment" + subtitle + "AI generated"
+ 0.0 s   taro_k:  dance!!                                (YouTube Live chat)
+ 0.2 s   she glances at the chat: "Oh! A new comment. Let me see…"   ← pre-generated ack clip, instant
+ 6–8 s   she springs up and dances — subtitle: "taro_kさん！danceだね、やってみよ！"   ← generated now, her voice
+12 s     back to her idle loop, waiting for the next one
 ```
 
-A viewer types *"dance!!"*. The persona — a face you generated ten minutes ago — answers *"taro_k, let's do it!"* and dances, on your stream, about four seconds later (measured: 4.0 s comment-to-screen on H3 Max Turbo). Someone in Seoul types *"언니 춤춰요"* and gets the same idol answering in Korean. Lip-sync avatars move a mouth; castconjure generates the whole shot: action, outfit, camera, scene.
+No dead time and no spoiler: the reply is never shown before the clip that acts it out. Watch the full recording of the real app, from `npm start` to the third reaction: [docs/app-demo.mp4](docs/app-demo.mp4).
 
-## Puppet vs. actor
+<p align="center"><img src="docs/app.gif" alt="The real app: terminal, control panel and OBS overlay" width="800"></p>
 
-| | Live2D / lip-sync avatars (HeyGen, Hedra, AITuber rigs) | fal.live / Infinite Slop | **castconjure** |
-|---|---|---|---|
-| What moves | mouth and head | everything, no fixed persona | **the persona does what chat asks: dance, eat, cry, change outfit, change room** |
-| Camera | fixed webcam framing | generated | **generated: close-ups, pans, 35 mm look** |
-| Consistency | a rigged model | none | **fixed seed + the same descriptions + a frame of her idle loop as the first frame; 3 reference images + reference voice for the strict mode** |
-| To create one | modelling + rigging, weeks | — | **face gacha → 3 refs → voice → personality: ~10 minutes** |
-| Cost | GPU / subscription | 24/7 generation | **idle pool pre-generated, reaction clips ≈ $0.25 each (H3 Max Turbo), hard budget cap** |
-| Keys / data | theirs | theirs | **yours — `.env` never leaves the machine** |
-
-Two layers keep her "always there" without paying for continuous generation: a pre-generated **idle pool** loops underneath; a **reaction clip** is generated only when a comment is cast and crossfades on top. Each reaction starts from a frame of the idle loop (image-to-video), with a **fixed per-persona seed** and the same voice/appearance description every time — that is what keeps her face *and voice* the same across clips without sending reference audio (the trick behind [R24](https://news-live-iota.vercel.app/)).
-
-## Quick start
+## Quick start (10 minutes)
 
 ```bash
 git clone https://github.com/purankuton2001/castconjure && cd castconjure
-npm install
-cp .env.example .env     # defaults: BACKEND=mock, PLATFORM=manual — nothing to fill in yet
+npm install && cp .env.example .env
 npm start
 ```
 
-1. Open **http://127.0.0.1:8787/** — the control panel. The bundled persona **白詰ゆい** is selected.
-2. **Persona → 顔ガチャ**: draw 4 faces (mock = placeholder portraits, fal = photoreal), click one → full-body and in-scene references are derived. Confirm. Generate a **voice**. Generate the **idle pool**.
-3. In OBS add a **Browser** source: URL `http://127.0.0.1:8787/overlay`, 1920 × 1080. The idle loop is already playing.
-4. Press **▶ Start**, type *踊って* into *Test comment*, hit Send. She answers and a reaction clip crossfades in. The loop works.
+Open **http://127.0.0.1:8787/**. The bundled persona (白詰ゆい / Yui) is selected and everything runs on a free mock backend first, so the loop works before you spend anything.
 
-Now make it real:
+1. **Persona → Face gacha** — draw 4 faces, click one, confirm the derived references (face / full body / in scene).
+2. **Voice gacha** — `npm run voice:gacha -- --n 2`, pick the one you like: `npm run voice:gacha -- --adopt 1`.
+3. **Idle pool** and **ack clips** — `npm run idle -- --n 12` and `npm run ack -- --n 6`.
+4. OBS → add a **Browser** source: `http://127.0.0.1:8787/overlay`, 1920 × 1080.
+5. Press **▶ Start**. Type *dance!!* in *Test comment*. She notices, then dances.
 
-```bash
-# .env
-BACKEND=fal
-FAL_KEY=…                      # from fal.ai/dashboard/keys — you pay fal directly
-PLATFORM=youtube
-YOUTUBE_API_KEY=…              # your own Google Cloud project, YouTube Data API v3, no OAuth
-```
-
-Start your stream, paste the video ID into the panel, press Start. Chat is live.
-
-Smoke-test one clip without streaming (5 free generations/day on fal when signed in), or run the week-1 consistency probe (N clips + an HTML contact sheet to rate face consistency 1–5):
+To go live, put your keys in `.env` — they never leave your machine:
 
 ```bash
-npm run gen:once -- "wave and say hi"
-npm run probe -- --n 20          # face consistency: N clips + HTML contact sheet to rate 1–5
-npm run probe:voice -- --langs en,ko,ja   # does she speak the line in her reference voice, per language?
+BACKEND=fal            FAL_KEY=…              # fal.ai — you pay fal directly, ~$0.25 per reaction
+PLATFORM=youtube       YOUTUBE_API_KEY=…      # your own Google Cloud project, no OAuth needed
+REPLY_PROVIDER=gemini  GEMINI_API_KEY=…       # or anthropic / openai — she answers in the commenter's language
 ```
 
-## How it works
+Start your stream, paste the video ID into the panel, press Start.
+
+## Why not a lip-sync avatar
+
+| | Live2D / lip-sync avatars | Studio virtual idols (3D + mocap) | fal.live / infinite streams | **castconjure** |
+|---|---|---|---|---|
+| What moves | mouth and head | everything, with a studio | everything, no fixed persona | **everything — a fixed persona, driven by chat** |
+| To create one | weeks of art + rigging | months + a team | — | **face gacha → 3 references → voice → personality, ~10 min** |
+| Consistency | rigged model | rigged model | none | **fixed seed + the same descriptions + her idle frame as the first frame** |
+| Voice | separate TTS | actor | none | **generated with the video, same seed → same voice** |
+| Cost | GPU / subscription | budget | 24/7 generation | **idle loop pre-generated; ~$0.25 per reaction** |
+| Keys / data | theirs | theirs | theirs | **yours** |
+
+## What's inside
+
+- **Two-layer overlay** — a pre-generated idle loop underneath; reaction clips crossfade on top. One OBS browser source.
+- **Ack clips** — six pre-generated "noticed your comment" clips play 0.2 s after a comment while the reaction generates.
+- **Reply mode** — an LLM (Gemini / Claude / OpenAI, your key) answers each comment in the commenter's language; the line becomes her spoken words and the subtitle.
+- **Action director** — "dance!!" becomes "she springs up and dances, spinning once, hair flying" so the clip actually shows it.
+- **Persona folder** — `data/personas/<id>/`: references, voice, seed, idle and ack pools. Copy it, share it, version it.
+- **Own-OC-only guard** — real idols, groups, anime/game characters, "look like X" and choreography requests are dropped silently (EN / KO / JA list).
+- **Approval mode**, rate limits, per-viewer cooldown, session budget cap, JSONL metrics of every comment → clip.
+- **Backends** — fal (H3 Max Turbo image-to-video by default, reference-to-video for max consistency), local ComfyUI, mock.
+- **Tooling** — `record:live`, `record:app` (headless end-to-end recording with measured latency and a numerical A/V sync check), `probe`, `probe:voice`.
+
+## Architecture
+
+```
+create once   face gacha ─► references (face / full / scene) ─► voice gacha (H3) ─► personality + seed ─► idle pool + ack pool
+live          chat ─► filters ─► reply (LLM) + action ─► prompt ─► H3 Max Turbo i2v from the idle frame ─► overlay
+              └ ack clip plays at 0.2 s ────────────────────────────────────────── reaction crossfades in at ~6 s ┘
+```
 
 ```
 src/
-  persona/    store.ts      a persona is a folder: data/personas/<id>/{persona.json, refs/, voice.*, idle/}
-              facegen.ts    F-10 face gacha (fal FLUX / Kontext, or mock) — generation only, no upload path
-              voice.ts      F-11 TTS reference voice (never cloned from a real person)
-  reply/      llm.ts        F-14 one-line reply in the persona's voice (mock | anthropic | gemini | openai, BYOK)
-  chat/       ChatAdapter   youtube.ts   videos.list → liveChatMessages.list, honours pollingIntervalMillis
-                            manual.ts    inject from the panel (testing, or hand-curated streams)
-  filter/     ngfilter.ts   blocklist (ja/en) + real-person heuristics; blocked = silent, never taunt
-              ipguard.ts    F-16 real idols, groups, anime/game characters & titles, "look like X", choreo requests
-              selector.ts   command prefix, global rate limit, per-user cooldown
-  prompt/     builder.ts    world (per stream → persona default) + persona (Image 1/2/3, Audio 1) + comment + reply
-  backend/    GenerateBackend   fal.ts   H3 Max via fal queue REST (text-to-video / reference-to-video + reference audio)
-                                local.ts ComfyUI, templated API-format workflow (pre-generation mode)
-                                mock.ts  $0 text card — the full loop with no keys
-  queue/      pipeline.ts   idle pool (F-13) · pending_approval → queued → generating → ready → playing → done
-                            per-session USD budget, clip caching, JSONL metrics, consistency ratings
-  server/     http.ts       panel, overlay, /api, /personas static, WebSocket
-personas/     shirotsume-yui/persona.json   bundled persona template (seeded into data/personas on first boot)
-public/       overlay.html  two layers: idle loop (two <video>s crossfading) + reaction clip with subtitle
+  chat/       youtube.ts (API key only, honours pollingIntervalMillis) · manual.ts
+  filter/     ngfilter.ts (NG words, real-person heuristics) · ipguard.ts (real idols / existing IP) · selector.ts
+  reply/      llm.ts — reply + action director (mock | gemini | anthropic | openai)
+  prompt/     builder.ts — world + persona + comment + reply + voice description; idle/ack prompts
+  backend/    fal.ts (queue API, r2v / i2v / i2v-turbo, fixed seed) · local.ts (ComfyUI) · mock.ts
+  persona/    store.ts · facegen.ts · voice.ts (voice gacha + clone)
+  queue/      pipeline.ts — state machine, ack bridging, cache-first playback, budget, metrics
+  server/     http.ts — panel, overlay, /api, /personas, WebSocket
+public/       overlay.html (OBS) · config.html (panel, EN / ?lang=ja) · demo.html (recording layout)
+scripts/      record-app.mjs · record-live.mjs · check-sync.py · align-clip.py · demo-video.py
 ```
 
-Every layer is an interface. Twitch is one adapter file. Another model is one backend file. A persona is a folder you can copy to another machine. The reply LLM answers in the commenter's language, so one persona serves an English, Korean and Japanese chat at once. Nothing in the pipeline knows it's for fandom — the same engine could front live commerce or a classroom.
-
-### Overlay
-
-`http://127.0.0.1:8787/overlay?pos=full&audio=1`
-
-| param | values | |
-|---|---|---|
-| `pos` | `full` `br` `bl` `tr` `tl` `c` | full-screen persona (default) or a framed window |
-| `w` | px | window width when not full (default 960) |
-| `idle` | `0` | disable the idle layer (reaction clips only, v0.6 behaviour) |
-| `pad` | px | distance from edges (default 32) |
-| `audio` | `1` | play with sound (enable "control audio via OBS") |
-| `wait` | `0` | hide the "generating…" placeholder |
-
-Shows: the idle loop, the reaction clip on top, **who cast it** (`〇〇さんのコメント`), the persona's **reply as a subtitle**, and an **AI generated** badge (on by default). Reconnects on its own; restart the server and OBS never notices.
-
-### Panel
-
-English by default; `http://127.0.0.1:8787/?lang=ja` for Japanese (the overlay takes `?lang=ja` too). Everything below is live-editable mid-stream and persisted to `data/settings.json`.
-
-| | |
-|---|---|
-| **Persona** | select / create; **style** (photoreal / anime); face gacha → reference set → confirm; **voice per language** (EN / KO / JA); personality (name, fan name, appearance, signatures, tone, verbal tics, forbidden, reply system prompt); idle pool |
-| **World prompt** | the per-stream vibe, overriding the persona's default: *"rainy neon Tokyo rooftop"* |
-| **Reply mode** | an LLM answers each cast comment in one line (≤ 30 chars); it becomes her spoken line and the subtitle. The subtitle shows instantly; the line is also spoken via TTS in her cloned voice while the clip generates |
-| **Reaction clip mode** | `i2v turbo` (default, ≈ 4 s, $0.25) · `i2v` (≈ 4 s) · `r2v` (reference images + reference voice, ≈ 10–13 s, $0.46) |
-| **Min interval / User cooldown** | one clip per N seconds; one per viewer per M seconds |
-| **Command prefix** | `!gen` — only prefixed comments count; empty = every comment |
-| **Approval mode** | nothing generates until you or a moderator says `!ok` (or click ✓) |
-| **Budget per session** | hard stop in USD; reset from the panel |
-| **Extra NG words** | your name, your channel, topics you don't want |
+Every layer is an interface: Twitch is one adapter file, another video model is one backend file, a persona is a folder.
 
 ## Cost
 
-fal pricing for MiniMax H3 Max, checked 2026-09 (the launch discount ended Sept 1):
+Measured on fal, September 2026:
 
-| route | per second | 5-s clip | 60 min at one clip / 30 s |
-|---|---|---|---|
-| text-to-video 480p | $0.05 | **$0.25** | ≈ $30 |
-| text-to-video 768p | $0.08 | $0.40 | ≈ $48 |
-| reference-to-video (character images) | $0.08 + $0.02 / image | $0.42 – 0.46 | ≈ $50 – 55 |
+| route | per reaction (5 s, 480p) | comment → screen |
+|---|---|---|
+| H3 Max Turbo image-to-video (default) | **$0.25** | **4–8 s** (generation 2.5–4 s + queue + cache) |
+| H3 Max reference-to-video, 3 refs + reference voice | $0.46 | 10–13 s |
 
-Default route is **H3 Max Turbo image-to-video** from an idle frame: **≈ $0.25** per 5 s reaction clip, about 4 s comment-to-screen (queue ≈ 1.7 s + generation ≈ 2.5 s, measured 2026-09). The strict route (reference-to-video with 3 images + reference voice) is ≈ $0.46 and 10–13 s. The **idle pool** (12 × 5 s ≈ $5.50, or $0 on the local backend) is generated once per persona and loops for free. Defaults: 480p, 5 s, 30 s interval, **$20 session cap**. Set a monthly cap on the fal dashboard too.
+One-time per persona: idle pool 12 × $0.25 ≈ $3, ack pool 6 × $0.25 ≈ $1.5, references ≈ $0.15. A 60-minute stream at one reaction per 30 s ≈ $30. Session cap defaults to $20; set a monthly cap on the fal dashboard too.
 
-Every generation is logged with its estimated cost; the fal invoice is the source of truth.
+## Safety by design
 
-## Safety
+1. **Your own original character only.** Faces are generated in-app; there is no upload. Every prompt carries "fictional adult, not resembling any real idol or existing character".
+2. **Real idols and existing IP are blocked everywhere** — comments, replies, persona text, gacha prompts. "Look like X", "cosplay as X", "do X's choreo" too.
+3. **Adults only. Voice is generated, never cloned from a real person. No real music, no real choreography.**
+4. **The owner is in charge** — on/off, world, rate, approval, budget. Viewers cannot paint on your screen without you.
+5. **AI is disclosed** — the badge is on by default; label the stream as synthetic content.
 
-These are defaults. Keep them.
-
-1. **Your own original character only.** Faces are generated in-app — there is no upload — and every face prompt carries a fixed suffix: fictional adult, not resembling any real idol or existing character. castconjure is not a way to make a real idol dance for you, and not a replacement for one: it's *your* OC.
-2. **Real idols and existing IP are blocked everywhere (F-16).** Comments, reply lines, persona text and gacha prompts that name a real idol, group, anime/game character or title — or ask for "look like X", "cosplay as X", "do X's choreo" — are dropped silently. The bundled list (`data/ip-names.txt`, EN/KO/JA) is deliberately broad; add your own in *Extra NG words*.
-3. **No real people in comments either.** Names, honorifics (〇〇さん / ちゃん / くん), `@mentions`, "Firstname Lastname", titles (president, idol…) are dropped unconditionally. False positives are accepted; blocked comments get *no* on-screen reaction.
-4. **No real music, no real choreography.** Her dance is *a* dance, never a cover.
-5. **Adults only.** The persona is an adult by definition, in both styles; childlike appearance or behaviour is on the forbidden list.
-6. **Voice is TTS.** Never cloned from a real person.
-7. **Sexual / violent content** is double-filtered: the bundled list (`data/ng-words.txt`) plus the model's safety checker. Reply lines go through the same filter.
-8. **The owner is in charge.** On/off, world, rate, approval, reply mode — viewers cannot paint on your screen without you.
-9. **AI is disclosed.** The badge is on by default; label the stream as synthetic content on YouTube / Twitch.
-
-## Metrics
-
-`data/logs/session-<timestamp>.jsonl`, one event per line. These are the numbers we publish after each demo stream.
-
-| ev | fields |
-|---|---|
-| `comment_received` / `comment_filtered` | `reason` — `real_person` `ng_word` `url` `rate_limit` `user_cooldown` `queue_full` `budget_exhausted` |
-| `comment_selected` | `job` `text` |
-| `gen_start` / `gen_done` / `gen_failed` | `backend` `genMs` `sinceReceivedMs` `costUsd` `spentUsd` `expandedPrompt` |
-| `play_start` / `play_end` | `sinceReceivedMs` — **comment → on screen** |
-| `reply_done` / `reply_failed` | `provider` `ms` `blocked` |
-| `gacha` / `refs_derived` / `voice_generated` / `idle_pool_start` / `idle_clip_done` | persona creation costs |
-| `consistency_rating` | the owner's 1–5 face-consistency rating from the panel (week-1 metric) |
-| `youtube_poll` | `items` `pollingIntervalMillis` `estUnits` |
-
-```bash
-# median comment→screen latency (ms)
-grep '"ev":"play_start"' data/logs/session-*.jsonl | jq -s 'map(.sinceReceivedMs) | sort | .[length/2|floor]'
-```
-
-Measured on fal (2026-09): H3 Max Turbo i2v **4.0 s** comment-to-screen; H3 Max r2v with 3 references + reference voice 13 s; the synchronous `fal.run` endpoint was 7–10 s slower than the queue, so the queue is used.
-
-## Local backend (ComfyUI)
-
-1. Build your H3 workflow in ComfyUI, **Save (API Format)**.
-2. Copy it to `local/workflow.json` and replace the literal values with `{{PROMPT}}` `{{FRAMES}}` `{{RESOLUTION}}` `{{SEED}}` `{{REFERENCE_IMAGE}}` — see `local/workflow.example.json`.
-3. `.env`: `BACKEND=local`, `COMFY_URL=http://127.0.0.1:8188`.
-
-The output node must write mp4/webm (e.g. `VHS_VideoCombine`).
+castconjure is not a way to make a real idol dance for you, and not a replacement for one. It is *your* OC.
 
 ## Roadmap
 
-- [x] YouTube Live (API key), fal H3 Max, local ComfyUI, mock
-- [x] NG filter, real-person guard, approval mode, budget cap, JSONL metrics
-- [x] Persona: face gacha, reference set, TTS voice, personality, idle pool, reply mode, two-layer overlay
-- [x] Own-OC-only guard (real idols / existing IP / likeness / choreo), English UI with `?lang=ja`, anime style preset, per-language reference voices
-- [ ] Week-1 probe: face consistency with 3 refs; spoken lines + reference voice through fal H3 Max (EN / KO / JA)
-- [ ] Demo streams #1–#3 with 白詰ゆい on [purankuton2001](https://www.youtube.com/@purankuton2001), published latency/cost logs
-- [ ] Gift → directing rights (outfit change, scene change, close-up)
-- [ ] Twitch adapter
-- [ ] Last-frame → first-frame continuity between clips
-- [ ] Mic input as a trigger (Web Speech / Whisper)
-- [ ] Character LoRA for the local route
-- [ ] Docker
+- [x] YouTube Live, fal H3 Max / Turbo, local ComfyUI, mock · NG + IP guard · approval · budget · metrics
+- [x] Persona: face gacha, voice gacha, seed, idle pool, ack clips, reply mode, two-layer overlay
+- [x] Headless end-to-end recording with numerical A/V sync verification
+- [ ] Demo streams #1–#3 on [purankuton2001](https://www.youtube.com/@purankuton2001) with published latency / cost logs
+- [ ] Twitch adapter · gift → directing rights (outfit change, scene change, close-up)
+- [ ] Anime style preset tuning · continuous mode (Reactor FastH3 / fal Director backends)
 
-Not planned: monetisation, a generic H3 SDK, 24/7 infinite streams, frame-level world models.
+## Contributing
 
-## Development
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Good first contributions: a Twitch adapter, a new persona template, a translation of this README, more ack lines in your language.
 
-```bash
-npm run dev          # tsx watch
-npm test             # filter / selector / prompt tests
-npm run typecheck
-python3 scripts/demo-video.py            # render the demo video (mock clips)
-python3 scripts/demo-video.py --clips data/clips/a.mp4,data/clips/b.mp4   # with real clips
-```
+## Star history
+
+<a href="https://star-history.com/#purankuton2001/castconjure&Date"><img src="https://api.star-history.com/svg?repos=purankuton2001/castconjure&type=Date" alt="Star History" width="600"></a>
 
 ## License
 
-MIT. Generation costs are billed to *your* fal account; this project neither pays nor proxies.
-
----
-
-## 日本語
-
-**誰でも 10 分でフォトリアルな AI VTuber（推し）を作り、リップシンクではなく映像そのものを生成して配信に載せる OSS。** 主戦場は英語圏・韓国語圏の K-pop／アニメ系ファンダムで、日本語はここに要点だけ。詳しくは上の英語版と [docs/GUIDE.md](docs/GUIDE.md)。
-
-- **人形ではなく俳優**：口パクではなく、踊る・食べる・喋る・場所を変える。動作・衣装・カメラが毎クリップ変わる
-- **顔はアプリ内で生成したものだけ**：写真アップロードはない。架空の成人、実在人物に似せない指示が常に付く
-- **二層で「常時いる」**：待機映像プールをループし、コメントが来たときだけ反応クリップを生成して重ねる
-- **BYOK・MIT**：fal / YouTube / LLM のキーは自分のもの。費用は自分のアカウントに直接
-- **YouTube Live**：API キーのみ、OAuth 不要
-
-### 3 分で動かす
-
-```bash
-git clone https://github.com/purankuton2001/castconjure && cd castconjure
-npm install && cp .env.example .env && npm start
-```
-
-1. <http://127.0.0.1:8787/> を開く。同梱の推し **白詰ゆい** が選ばれている
-2. **推し → 顔ガチャ** で 4 枚引き、気に入った顔をクリック → 全身・世界観の参照を派生生成 → 確認して保存 → **声を生成** → **待機映像プールを生成**
-3. OBS に **ブラウザソース**：`http://127.0.0.1:8787/overlay`、1920 × 1080。待機映像が流れ始める
-4. **▶ Start** → Test comment に「踊って」→ Send。推しが一言返し、反応クリップが重なれば一周
-
-本物にするには `.env` に `BACKEND=fal` と `FAL_KEY`、`PLATFORM=youtube` と `YOUTUBE_API_KEY`。配信を始めてから動画 ID をパネルに入れて Start。
-
-### 費用の目安
-
-参照画像 3 枚の reference-to-video で **1 クリップ約 $0.46**。30 秒に 1 回、60 分で約 $55。待機プールは 12 本で約 $5.5（ローカルなら $0）、推しごとに 1 回だけ。セッション上限（既定 $20）に達すると反応だけ止まり、待機は流れ続ける。
-
-### 安全ルール
-
-顔はアプリ内生成のみ（写真不可）。実在人物は生成しない（人名・敬称・@・肩書は無条件除外）。推しは成人のみ。声は TTS のみ。性的・暴力的表現は二重フィルタで、返事の台詞にもかける。持ち主が主導。「AI生成」表記は既定 ON、YouTube の合成コンテンツ開示も。
-
-### 配信中の運用
-
-- **承認モード**：フィルタを通ったコメントは保留に並び、配信者かモデレーターの `!ok`（最新を承認）か UI の ✓ で生成。視聴者の `!ok` は黙って捨てる
-- **`!gen` 縛り**：Command prefix に `!gen` を入れると、付いたコメントだけ拾う
-- **予算**：ヘッダーに使用額が出る。到達で止まったら Reset budget
-
-詳しい使い方ガイド：[docs/GUIDE.md](docs/GUIDE.md)
+MIT. Generation costs are billed to *your* fal account; this project neither pays nor proxies. Model: MiniMax H3 via [fal](https://fal.ai).

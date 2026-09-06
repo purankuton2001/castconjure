@@ -1,0 +1,20 @@
+name: Bug report
+description: Something broke (generation, overlay, chat, panel)
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes: { label: Version / commit, placeholder: "e.g. main @ abc1234" }
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      options: [mock, fal (H3 Max Turbo i2v), fal (r2v), local ComfyUI]
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: "Steps, what you expected, what you got." }
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes: { label: Log lines, description: "Relevant lines from the panel log or data/logs/session-*.jsonl (remove keys)." , render: text }

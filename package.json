@@ -1,7 +1,7 @@
 {
   "name": "castconjure",
   "version": "0.1.0",
-  "description": "Comment-driven realtime AI video overlay for OBS. Turns live chat into 5-second generated clips on your existing stream. BYOK, MIT.",
+  "description": "Your own virtual idol, generated \u2014 not lip-synced. Chat makes her dance, eat, talk and change scenes, live on your stream. OSS, BYOK.",
   "type": "module",
   "license": "MIT",
   "private": true,
@@ -33,5 +33,23 @@
     "playwright": "^1.63.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
-  }
+  },
+  "keywords": [
+    "ai-vtuber",
+    "vtuber",
+    "virtual-idol",
+    "text-to-video",
+    "minimax",
+    "h3",
+    "fal",
+    "obs",
+    "youtube-live",
+    "livestream",
+    "generative-video"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/purankuton2001/castconjure"
+  },
+  "homepage": "https://github.com/purankuton2001/castconjure#readme"
 }

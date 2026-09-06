@@ -1,6 +1,6 @@
 # castconjure 使い方ガイド
 
-起動・OBS 設定・fal / YouTube 接続・配信中の運用・ログの読み方。英語の概要は [README](../README.md)。
+起動・OBS 設定・fal / YouTube 接続・配信中の運用・ログの読み方。英語の概要は [README](../README.md)（[日本語](../README.ja.md) / [한국어](../README.ko.md)）。
 
 ## 1. これは何か
 
