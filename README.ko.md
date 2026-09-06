@@ -77,6 +77,19 @@ REPLY_PROVIDER=gemini  GEMINI_API_KEY=…       # anthropic / openai 도 가능.
 | 비용 | GPU / 구독 | 예산 | 24/7 생성 | **대기는 미리 생성, 반응 1개 약 $0.25** |
 | 키 / 데이터 | 그들 | 그들 | 그들 | **나** |
 
+### 연속 생성(H3 Max Director)을 쓰지 않는 이유
+
+직접 측정했습니다. `npm run probe:director`는 실제 `minimax/h3-max/director` WebRTC 세션을 대기 프레임과 seed에서 열고, 30 / 60 / 90초에 프롬프트를 바꾸며 음성 포함으로 녹화합니다. 결과(2026년 9월, 수치는 [docs/DIRECTOR-PROBE.md](docs/DIRECTOR-PROBE.md)):
+
+| | H3 Max Director (연속) | castconjure (클립) |
+|---|---|---|
+| 프롬프트 변경 → 화면 | 3–19초, 8.5초 청크의 어디에 떨어지느냐에 따라 다름 | 4–8초, 알아챔 클립은 0.2초 |
+| 세션 | 120초에서 강제 종료 | 무제한 |
+| 2분간 일관성 | 얼굴과 목소리는 유지되지만 귀걸이·머리·가짜 채팅 UI가 스며듦 | 매번 같은 대기 프레임에서 시작 |
+| 비용 | 분당 $1.2 (프로모, 정가 $4.8), 최소 60초 | 반응 1개 약 $0.25, 대기는 무료 |
+
+Director는 "Turbo image-to-video를 이전 프레임에서 이어 붙이는" 같은 기법을 서버 쪽에서 하는 것입니다. 세션 상한이 사라지는 날 "라이브 모드" 백엔드가 됩니다. 출발점은 이 probe 스크립트입니다.
+
 ## 안에 든 것
 
 - **2층 오버레이** — 미리 생성한 대기 루프 위에 반응 클립이 크로스페이드. OBS 브라우저 소스 하나
@@ -87,7 +100,7 @@ REPLY_PROVIDER=gemini  GEMINI_API_KEY=…       # anthropic / openai 도 가능.
 - **오리지널 캐릭터 전용 가드** — 실존 아이돌, 그룹, 애니/게임 캐릭터, "X처럼 생기게", 안무 요청은 조용히 제외 (EN / KO / JA)
 - 승인 모드, 속도 제한, 시청자별 쿨다운, 세션 예산 상한, 댓글 → 클립 JSONL 로그
 - **백엔드** — fal (기본 H3 Max Turbo image-to-video, 최대 일관성은 reference-to-video), 로컬 ComfyUI, mock
-- **도구** — `record:live`, `record:app` (헤드리스 종단간 녹화, 지연 측정, A/V 동기 수치 검사), `probe`, `probe:voice`
+- **도구** — `record:live`, `record:app` (헤드리스 종단간 녹화, 지연 측정, A/V 동기 수치 검사), `probe`, `probe:voice`, `probe:director` (H3 Max Director 2분 세션 녹화·측정)
 
 ## 비용
 

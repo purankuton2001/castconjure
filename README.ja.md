@@ -78,6 +78,19 @@ REPLY_PROVIDER=gemini  GEMINI_API_KEY=…       # anthropic / openai も可。�
 | 費用 | GPU／サブスク | 予算 | 24 時間生成 | **待機は事前生成、反応 1 本 約 $0.25** |
 | キーとデータ | 相手側 | 相手側 | 相手側 | **自分** |
 
+### 連続生成（H3 Max Director）を使わない理由
+
+実測しました。`npm run probe:director` は本物の `minimax/h3-max/director` WebRTC セッションを待機フレームと seed から開き、30／60／90 秒でプロンプトを変えて音声付きで録画します。結果（2026 年 9 月、数値は [docs/DIRECTOR-PROBE.md](docs/DIRECTOR-PROBE.md)）：
+
+| | H3 Max Director（連続） | castconjure（クリップ） |
+|---|---|---|
+| プロンプト変更 → 画面 | 3〜19 秒。8.5 秒チャンクのどこに落ちるかで変動 | 4〜8 秒。気づきクリップは 0.2 秒 |
+| セッション | 120 秒で強制終了 | 無制限 |
+| 2 分間の一貫性 | 顔と声は保つが、イヤリング・髪・偽チャット UI がにじむ | 毎回同じ待機フレームから開始 |
+| 費用 | 分 $1.2（促販、定価 $4.8）、最低 60 秒 | 反応 1 本 約 $0.25、待機は無料 |
+
+Director は「Turbo の image-to-video を前のフレームから繋ぐ」という同じ手法をサーバー側でやっているものです。セッション上限が外れた日に「ライブモード」バックエンドになります。土台はこの probe スクリプトです。
+
 ## 入っているもの
 
 - **二層オーバーレイ**：待機ループの上に反応クリップをクロスフェード。OBS ブラウザソース 1 枚
@@ -88,7 +101,7 @@ REPLY_PROVIDER=gemini  GEMINI_API_KEY=…       # anthropic / openai も可。�
 - **自分の OC だけ**：実在アイドル・グループ・アニメ／ゲームのキャラ・「〇〇に似せて」「振付」は黙って除外（英・韓・日）
 - 承認モード、レート制限、視聴者ごとの冷却、セッション予算、コメント→クリップの JSONL ログ
 - **バックエンド**：fal（既定は H3 Max Turbo の image-to-video、厳密モードは reference-to-video）、ローカル ComfyUI、mock
-- **ツール**：`record:live`／`record:app`（headless の実機録画、レイテンシ計測、音声同期の数値検査）、`probe`、`probe:voice`
+- **ツール**：`record:live`／`record:app`（headless の実機録画、レイテンシ計測、音声同期の数値検査）、`probe`、`probe:voice`、`probe:director`（H3 Max Director を 2 分回して録画・計測）
 
 ## 費用
 

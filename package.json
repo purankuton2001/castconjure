@@ -1,7 +1,7 @@
 {
   "name": "castconjure",
   "version": "0.1.0",
-  "description": "Your own virtual idol, generated \u2014 not lip-synced. Chat makes her dance, eat, talk and change scenes, live on your stream. OSS, BYOK.",
+  "description": "Your own virtual idol, generated — not lip-synced. Chat makes her dance, eat, talk and change scenes, live on your stream. OSS, BYOK.",
   "type": "module",
   "license": "MIT",
   "private": true,
@@ -21,13 +21,15 @@
     "record:live": "node scripts/record-live.mjs",
     "persona:import": "tsx src/cli/persona-import.ts",
     "voice:gacha": "tsx src/cli/voice-gacha.ts",
-    "ack": "tsx src/cli/ack-pool.ts"
+    "ack": "tsx src/cli/ack-pool.ts",
+    "probe:director": "node scripts/director-probe.mjs --seconds 120 --out out/director"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@fal-ai/client": "^1.11.0-alpha.2",
     "@types/node": "^22.7.0",
     "@types/ws": "^8.5.12",
     "playwright": "^1.63.0",

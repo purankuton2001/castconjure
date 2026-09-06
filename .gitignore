@@ -10,3 +10,4 @@ data/settings.json
 !data/clips/.gitkeep
 !data/characters/.gitkeep
 .DS_Store
+out/

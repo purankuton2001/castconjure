@@ -89,6 +89,19 @@ Start your stream, paste the video ID into the panel, press Start.
 | Cost | GPU / subscription | budget | 24/7 generation | **idle loop pre-generated; ~$0.25 per reaction** |
 | Keys / data | theirs | theirs | theirs | **yours** |
 
+### Why not a continuous stream (H3 Max Director)?
+
+We measured it. `npm run probe:director` opens a real `minimax/h3-max/director` WebRTC session from her idle frame with her seed, changes the prompt at 30 / 60 / 90 s and records audio + video. Findings (September 2026, full numbers in [docs/DIRECTOR-PROBE.md](docs/DIRECTOR-PROBE.md)):
+
+| | H3 Max Director (continuous) | castconjure (clips) |
+|---|---|---|
+| prompt change → visible | 3–19 s, depends on where in the 8.5 s chunk it lands | 4–8 s, ack clip at 0.2 s |
+| session | capped at 120 s, then the stream ends | unlimited |
+| consistency over 2 min | face and voice hold; earrings, hair and fake chat UI drift in | every clip starts from the same idle frame |
+| cost | $1.2 / min promo ($4.8 / min list), 60 s minimum | ~$0.25 per reaction, idle is free |
+
+Director is the same trick (Turbo image-to-video chained from the previous frames) done server-side. It becomes a "live mode" backend the day the session cap goes away; the probe script is the starting point.
+
 ## What's inside
 
 - **Two-layer overlay** — a pre-generated idle loop underneath; reaction clips crossfade on top. One OBS browser source.
@@ -99,7 +112,7 @@ Start your stream, paste the video ID into the panel, press Start.
 - **Own-OC-only guard** — real idols, groups, anime/game characters, "look like X" and choreography requests are dropped silently (EN / KO / JA list).
 - **Approval mode**, rate limits, per-viewer cooldown, session budget cap, JSONL metrics of every comment → clip.
 - **Backends** — fal (H3 Max Turbo image-to-video by default, reference-to-video for max consistency), local ComfyUI, mock.
-- **Tooling** — `record:live`, `record:app` (headless end-to-end recording with measured latency and a numerical A/V sync check), `probe`, `probe:voice`.
+- **Tooling** — `record:live`, `record:app` (headless end-to-end recording with measured latency and a numerical A/V sync check), `probe`, `probe:voice`, `probe:director` (2-minute H3 Max Director session, recorded and measured).
 
 ## Architecture
 
@@ -153,7 +166,7 @@ castconjure is not a way to make a real idol dance for you, and not a replacemen
 - [x] Headless end-to-end recording with numerical A/V sync verification
 - [ ] Demo streams #1–#3 on [purankuton2001](https://www.youtube.com/@purankuton2001) with published latency / cost logs
 - [ ] Twitch adapter · gift → directing rights (outfit change, scene change, close-up)
-- [ ] Anime style preset tuning · continuous mode (Reactor FastH3 / fal Director backends)
+- [ ] Anime style preset tuning · continuous "live mode" backend once fal Director drops its 120 s session cap (see `probe:director`)
 
 ## Contributing
 

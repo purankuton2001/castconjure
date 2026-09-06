@@ -38,7 +38,8 @@ Thread (replies):
 2. Why there's no dead time: 6 pre-generated "noticed your comment" clips play instantly while the reaction generates.
 3. Latency breakdown (measured): reply 1.3 s (Gemini) · generation 2.5–4 s · cache 1.5 s → 6–8 s comment to screen.
 4. Safety: faces are generated in-app only; real idols / existing characters / "look like X" are blocked in chat and in prompts.
-5. What's next: demo streams on YouTube, Twitch adapter, gift → directing rights.
+5. "Why not fal's continuous H3 Max Director?" — we ran it for 2 min from her idle frame: same face and voice, but a 120 s session cap, 3–19 s prompt-to-screen and fake chat UI drifting in by 90 s. Numbers + recording in the repo (`npm run probe:director`).
+6. What's next: demo streams on YouTube, Twitch adapter, gift → directing rights.
 
 ## X — 日本語（引用）
 
