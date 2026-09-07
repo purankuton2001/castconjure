@@ -116,7 +116,7 @@ fal で 2026 年 9 月に実測：
 | H3 Max Turbo image-to-video（既定） | **$0.25** | **4〜8 秒** |
 | H3 Max reference-to-video（参照 3 枚＋参照音声） | $0.46 | 10〜13 秒 |
 
-推しごとに 1 回：待機 12 本 ≈ $3、気づき 6 本 ≈ $1.5、参照 ≈ $0.15。30 秒に 1 回の反応で 60 分 ≈ $30。セッション上限は既定 $20。fal 側の月次上限も設定を。
+推しごとに 1 回：待機 12 本 ≈ $3、気づき 6 本 ≈ $1.5、参照 ≈ $0.15。30 秒に 1 回の反応で 60 分 ≈ $30。セッション上限は既定 $20。fal 側の月次上限も設定を。Turbo の秒単価は fal のページに未掲載のため、見積もりは H3 Max と同額と仮定しています（請求書で異なれば `.env` の `PRICE_TURBO_480P` で上書き）。
 
 ## 安全設計
 
@@ -132,8 +132,8 @@ castconjure は実在のアイドルを踊らせる道具でも、その代替�
 
 Issue と PR を歓迎します。[CONTRIBUTING.md](CONTRIBUTING.md) を参照。最初の一歩に向くもの：Twitch アダプタ、新しい推しテンプレート、README の翻訳、あなたの言語の気づき台詞。
 
-詳しい使い方（日本語）：[docs/GUIDE.md](docs/GUIDE.md)。アーキテクチャとロードマップは [英語 README](README.md#architecture) を参照。
+詳しい使い方（日本語）：[docs/GUIDE.md](docs/GUIDE.md)。要件定義：[docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)。アーキテクチャとロードマップは [英語 README](README.md#architecture) を参照。
 
 ## ライセンス
 
-MIT。生成費用は利用者自身の fal アカウントに直接課金され、本プロジェクトは仲介しません。モデルは MiniMax H3（[fal](https://fal.ai) 経由）。
+MIT。生成費用は利用者自身の fal アカウントに直接課金され、本プロジェクトは仲介しません。モデルは MiniMax H3（[fal](https://fal.ai) 経由）。生成物は fal と MiniMax の利用規約に従います。

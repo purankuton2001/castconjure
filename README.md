@@ -30,6 +30,7 @@
   <a href="#cost">Cost</a> ·
   <a href="#safety-by-design">Safety</a> ·
   <a href="docs/GUIDE.md">Guide (JA)</a> ·
+  <a href="docs/REQUIREMENTS.md">Requirements (JA)</a> ·
   <a href="https://github.com/purankuton2001/castconjure/discussions">Discussions</a>
 </p>
 
@@ -152,7 +153,7 @@ Measured on fal, September 2026:
 | H3 Max Turbo image-to-video (default) | **$0.25** | **4–8 s** (generation 2.5–4 s + queue + cache) |
 | H3 Max reference-to-video, 3 refs + reference voice | $0.46 | 10–13 s |
 
-One-time per persona: idle pool 12 × $0.25 ≈ $3, ack pool 6 × $0.25 ≈ $1.5, references ≈ $0.15. A 60-minute stream at one reaction per 30 s ≈ $30. Session cap defaults to $20; set a monthly cap on the fal dashboard too.
+One-time per persona: idle pool 12 × $0.25 ≈ $3, ack pool 6 × $0.25 ≈ $1.5, references ≈ $0.15. A 60-minute stream at one reaction per 30 s ≈ $30. Session cap defaults to $20; set a monthly cap on the fal dashboard too. The Turbo per-second price is not listed on fal's page; the estimates assume it equals H3 Max (`PRICE_TURBO_480P` in `.env` overrides it once your invoice says otherwise).
 
 ## Safety by design
 

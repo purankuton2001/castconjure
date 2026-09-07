@@ -37,6 +37,16 @@ function sameOriginRequest(req: http.IncomingMessage, port: number): boolean {
   return !origin || LOCAL_ORIGIN.test(origin);
 }
 const LOCAL_ORIGIN = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/;
+const LOCAL_HOST = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
+
+/**
+ * DNS rebinding guard: a page on `attacker.example` whose DNS is repointed at 127.0.0.1 reaches this server with
+ * `Sec-Fetch-Site: same-origin`, so the origin check alone is not enough. The server only ever listens on loopback,
+ * so any other Host header is a rebinding attempt (or a misconfigured proxy) and is refused.
+ */
+export function isLocalHostHeader(host: string | undefined): boolean {
+  return typeof host === 'string' && LOCAL_HOST.test(host.trim());
+}
 
 function ipHit(fields: Record<string, unknown>): string | null {
   for (const [k, v] of Object.entries(fields)) {
@@ -50,7 +60,8 @@ function ipHit(fields: Record<string, unknown>): string | null {
 export function createServer(pipeline: Pipeline, port: number): http.Server {
   const server = http.createServer(async (req, res) => {
     try {
-      const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+      if (!isLocalHostHeader(req.headers.host)) return json(res, { error: 'unexpected Host header' }, 403);
+      const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
       const p = url.pathname;
       if (req.method === 'GET') {
         if (p === '/' || p === '/config') return sendFile(res, path.join(PUBLIC, 'config.html'));
@@ -242,7 +253,11 @@ export function createServer(pipeline: Pipeline, port: number): http.Server {
     }
   });
 
-  const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ origin }: { origin?: string }) => !origin || LOCAL_ORIGIN.test(origin) });
+  const wss = new WebSocketServer({
+    server,
+    path: '/ws',
+    verifyClient: ({ origin, req }: { origin?: string; req: http.IncomingMessage }) => isLocalHostHeader(req.headers.host) && (!origin || LOCAL_ORIGIN.test(origin)),
+  });
   wss.on('connection', (ws) => {
     send(ws, { type: 'hello', settings: pipeline.settings, state: pipeline.publicState() });
     send(ws, pipeline.idlePoolMessage());
@@ -336,7 +351,10 @@ function readJson(req: http.IncomingMessage): Promise<unknown> {
     let data = '';
     req.on('data', (c) => {
       data += c;
-      if (data.length > 2e6) reject(new Error('body too large'));
+      if (data.length > 2e6) {
+        reject(new Error('body too large'));
+        req.destroy();
+      }
     });
     req.on('end', () => {
       try {

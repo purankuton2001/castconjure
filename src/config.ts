@@ -1,9 +1,10 @@
 import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Settings } from './types.js';
 
-export const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const DATA_DIR = path.join(ROOT, 'data');
 export const CLIPS_DIR = path.join(DATA_DIR, 'clips');
 export const LOGS_DIR = path.join(DATA_DIR, 'logs');

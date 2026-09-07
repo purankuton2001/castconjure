@@ -131,9 +131,9 @@ async function anthropic(system: string, user: string, signal?: AbortSignal): Pr
 async function gemini(system: string, user: string, signal?: AbortSignal): Promise<string> {
   if (!secrets.geminiKey) throw new Error('GEMINI_API_KEY is not set');
   const model = secrets.replyModel || 'gemini-2.5-flash';
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${secrets.geminiKey}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'x-goog-api-key': secrets.geminiKey, 'content-type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: user + '\n\nJSON で {"reply": "...", "action": "..."} だけを返す。' }] }],
