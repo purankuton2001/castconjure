@@ -37,7 +37,9 @@
 
 **castconjure** is an open-source, bring-your-own-key tool that turns a generated character into a live streamer. There is no 3D model, no rigging, no motion capture and no lip-sync puppet: every reaction is a freshly generated 5-second video with her own voice. Lip-sync avatars move a mouth. castconjure generates the whole shot — action, outfit, camera, scene.
 
-Built for the K-pop / anime fandom era: one idol, a global chat, your own original character only.
+Built for creators who already have an original character (starting with creators who work in Japanese) and for the fans who watch from abroad in English, Korean or Chinese: one idol, a global chat, your own original character only. Photoreal or anime, your call. The [Conjure Board](https://purankuton2001.github.io/conjure-board/) shows, per idol, how much of the audience reacted in a language other than the creator's.
+
+castconjure is one of two apps built from the same requirements document by two models; the other is [AI OshiBloom](https://github.com/purankuton2001/ai-oshibloom) (studio + continuous live, by GPT-6). Neither is a demo of the other. Compare them on the Board.
 
 ## How it feels
 
